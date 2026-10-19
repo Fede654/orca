@@ -46,6 +46,7 @@ import { RichMarkdownOrderedList } from '../lists/rich-markdown-ordered-list'
 import { RichMarkdownParagraph } from './rich-markdown-paragraph'
 import { RichMarkdownCodeBlockLowlight } from '../code-blocks/rich-markdown-lowlight'
 import { RichMarkdownTaskList } from '../lists/rich-markdown-task-list'
+import { createRichMarkdownFootnoteExtensions } from '../footnotes/rich-markdown-footnotes'
 import { createCachedLowlight } from '../code-blocks/rich-markdown-lowlight-cache'
 import { documentResourceAccess } from '@/lib/local-file-access'
 import { attachRichMarkdownImageErrorLink } from '../images/rich-markdown-image-error-link'
@@ -286,6 +287,7 @@ export function createRichMarkdownExtensions({
         throwOnError: false
       }
     }),
+    ...createRichMarkdownFootnoteExtensions(codec),
     createRichMarkdownLiteral(codec.transport),
     ...(htmlSuperscriptLinks
       ? [createRichMarkdownHtmlSuperscriptLink(codec.transport, htmlSuperscriptLinkContext!)]
