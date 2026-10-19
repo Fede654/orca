@@ -7,6 +7,7 @@ import {
   createRichMarkdownEditorCodec,
   type RichMarkdownEditorCodec
 } from '../../rich-markdown/document/rich-markdown-source-transport'
+import { installRichMarkdownFootnoteParser } from '../../rich-markdown/footnotes/rich-markdown-footnote-context'
 import { createRichMarkdownHtmlSuperscriptLinkContext } from '../../rich-markdown/citations/rich-markdown-html-superscript-link-context'
 
 const roundTripCache = new Map<string, string | null>()
@@ -59,6 +60,7 @@ export function getRichMarkdownPassthroughOutput(
   try {
     const extensions = createRoundTripExtensions(codec)
     const manager = createRoundTripMarkdownManager(codec, extensions)
+    installRichMarkdownFootnoteParser(manager, codec)
     const document = manager.parse(encoded)
     getSchema(extensions).nodeFromJSON(document).check()
     return manager.serialize(document)

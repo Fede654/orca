@@ -13,6 +13,7 @@ import {
 import { translate } from '@/i18n/i18n'
 import { encodeRawMarkdownHtmlForRichEditor } from '../../rich-markdown/raw-source/raw-markdown-html'
 import { createRichMarkdownEditorCodec } from '../../rich-markdown/document/rich-markdown-source-transport'
+import { preservesRichMarkdownFootnoteMarkers } from '../../rich-markdown/footnotes/rich-markdown-footnote-source'
 
 // Why: eligibility re-runs on every edit, so this caps full-document parser cost.
 const FULL_ROUND_TRIP_MAX_CODE_UNITS = 50_000
@@ -62,7 +63,7 @@ const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
         'Editable only in code mode because this file contains footnotes.'
       )
     },
-    pattern: /^\[\^[^\]]+\]:\s+/m
+    pattern: /^ {0,3}\[\^[^\]]+\]:/m
   },
   {
     reason: 'reference-links',
@@ -100,15 +101,20 @@ export function getMarkdownRichModeUnsupportedReason(
 
   const contentWithoutCode = stripMarkdownCode(body)
 
-  // Only documents containing embedded HTML need a preservation proof.
+  // Embedded HTML and footnotes need a preservation proof before visual editing.
   const htmlMatcher = UNSUPPORTED_PATTERNS.find((m) => m.reason === 'html-or-jsx')
   const hasHtml = htmlMatcher && hasHtmlOrJsx(contentWithoutCode, htmlMatcher.pattern)
 
+  let hasFootnotes = false
   for (const matcher of UNSUPPORTED_PATTERNS) {
     if (matcher.reason === 'html-or-jsx') {
       continue
     }
     if (!matcher.pattern.test(contentWithoutCode)) {
+      continue
+    }
+    if (matcher.reason === 'footnotes') {
+      hasFootnotes = true
       continue
     }
     if (
@@ -121,15 +127,27 @@ export function getMarkdownRichModeUnsupportedReason(
     return matcher.reason
   }
 
-  if (hasHtml) {
+  if (hasHtml || hasFootnotes) {
     const roundTripOutput =
       body.length > FULL_ROUND_TRIP_MAX_CODE_UNITS
         ? getLargeMarkdownRoundTripOutput(body, htmlMatcher!.pattern)
         : getRichMarkdownRoundTripOutput(body)
-    if (roundTripOutput && preservesEmbeddedHtml(contentWithoutCode, roundTripOutput)) {
-      return null
+    if (
+      hasFootnotes &&
+      (!roundTripOutput ||
+        !preservesRichMarkdownFootnoteMarkers(
+          contentWithoutCode,
+          stripMarkdownCode(roundTripOutput)
+        ))
+    ) {
+      return 'footnotes'
     }
-    return htmlMatcher!.reason
+    if (
+      hasHtml &&
+      (!roundTripOutput || !preservesEmbeddedHtml(contentWithoutCode, roundTripOutput))
+    ) {
+      return htmlMatcher!.reason
+    }
   }
 
   return null
