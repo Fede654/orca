@@ -73,7 +73,7 @@ const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
       )
     },
     // Why: `[label]: ` also opens prose, so the rich parser confirms a real definition.
-    pattern: /^\[[^\]]+\]:\s+\S+/m
+    pattern: /^\[(?!\^)[^\]]+\]:\s+\S+/m
   }
 ]
 
