@@ -58,7 +58,7 @@ const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
         'Editable only in code mode because this file contains reference-style links.'
       )
     },
-    pattern: /^\[[^\]]+\]:\s+\S+/m
+    pattern: /^\[(?!\^)[^\]]+\]:\s+\S+/m
   },
   {
     reason: 'footnotes',
