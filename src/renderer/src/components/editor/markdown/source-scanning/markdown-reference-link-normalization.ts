@@ -11,7 +11,7 @@ type ReferenceLinkDefinition = {
 }
 
 const REFERENCE_DEFINITION_PATTERN =
-  /^ {0,3}\[([^\]]+)\]:[ \t]*(<[^>\n]+>|[^\s]+)(?:[ \t]+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\)))?[ \t]*$/
+  /^ {0,3}\[(?!\^)([^\]]+)\]:[ \t]*(<[^>\n]+>|[^\s]+)(?:[ \t]+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\)))?[ \t]*$/
 
 function normalizeReferenceLabel(label: string): string {
   let normalized = ''
