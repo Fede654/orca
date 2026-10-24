@@ -1,652 +1,902 @@
 // POSIX hooks drain before exit; Windows missing-context hooks may exit without owning stdin.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type * as CodexHookHashLookup from '../codex/codex-hook-hash-lookup'
-import { spawnProcess } from '@orca/process-host'
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import type { SFTPWrapper } from 'ssh2'
-import type * as osModule from 'node:os'
-import type * as NativeHookExecutableModule from './windows-native-hook-executable'
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as CodexHookHashLookup from "../codex/codex-hook-hash-lookup";
+import { spawnProcess } from "@orca/process-host";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { SFTPWrapper } from "ssh2";
+import type * as osModule from "node:os";
+import type * as NativeHookExecutableModule from "./windows-native-hook-executable";
 
-let isolatedUserDataDir = ''
-let previousUserDataPath: string | undefined
+let isolatedUserDataDir = "";
+let previousUserDataPath: string | undefined;
 
 beforeEach(() => {
-  vi.stubEnv('GROK_HOME', undefined)
-  vi.stubEnv('KIMI_CODE_HOME', undefined)
-  vi.stubEnv('COPILOT_HOME', undefined)
-  vi.stubEnv('KIRO_HOME', undefined)
-  vi.stubEnv('XDG_CONFIG_HOME', undefined)
-  previousUserDataPath = process.env.ORCA_USER_DATA_PATH
-  isolatedUserDataDir = mkdtempSync(join(tmpdir(), 'orca-hook-stdin-user-data-'))
+  vi.stubEnv("GROK_HOME", undefined);
+  vi.stubEnv("KIMI_CODE_HOME", undefined);
+  vi.stubEnv("COPILOT_HOME", undefined);
+  vi.stubEnv("KIRO_HOME", undefined);
+  vi.stubEnv("XDG_CONFIG_HOME", undefined);
+  previousUserDataPath = process.env.ORCA_USER_DATA_PATH;
+  isolatedUserDataDir = mkdtempSync(
+    join(tmpdir(), "orca-hook-stdin-user-data-"),
+  );
   // Isolate managed-script resolution so inherited user-data paths cannot target live hooks.
-  process.env.ORCA_USER_DATA_PATH = isolatedUserDataDir
-})
+  process.env.ORCA_USER_DATA_PATH = isolatedUserDataDir;
+});
 
 afterEach(() => {
   if (previousUserDataPath === undefined) {
-    delete process.env.ORCA_USER_DATA_PATH
+    delete process.env.ORCA_USER_DATA_PATH;
   } else {
-    process.env.ORCA_USER_DATA_PATH = previousUserDataPath
+    process.env.ORCA_USER_DATA_PATH = previousUserDataPath;
   }
-  rmSync(isolatedUserDataDir, { recursive: true, force: true })
-  vi.unstubAllEnvs()
-})
+  rmSync(isolatedUserDataDir, { recursive: true, force: true });
+  vi.unstubAllEnvs();
+});
 
 const { homedirMock, bundledHook } = vi.hoisted(() => {
-  const bundledHook: { path: string | null } = { path: null }
-  return { homedirMock: vi.fn<() => string>(), bundledHook }
-})
+  const bundledHook: { path: string | null } = { path: null };
+  return { homedirMock: vi.fn<() => string>(), bundledHook };
+});
 
 // Test the real built executable without packaged resource lookup.
-vi.mock('./windows-native-hook-executable', async (importOriginal) => ({
+vi.mock("./windows-native-hook-executable", async (importOriginal) => ({
   ...(await importOriginal<typeof NativeHookExecutableModule>()),
-  resolveBundledWindowsNativeHookExecutable: () => bundledHook.path
-}))
+  resolveBundledWindowsNativeHookExecutable: () => bundledHook.path,
+}));
 
-vi.mock('../codex/codex-hook-hash-lookup', async (importOriginal) => ({
+vi.mock("../codex/codex-hook-hash-lookup", async (importOriginal) => ({
   ...(await importOriginal<typeof CodexHookHashLookup>()),
   resolveCodexHookAnswerForLaunch: async () =>
-    (await import('../codex/hook-service-test-harness')).codexHookAnswerForTests()
-}))
+    (
+      await import("../codex/hook-service-test-harness")
+    ).codexHookAnswerForTests(),
+}));
 
-vi.mock('electron', () => ({
+vi.mock("electron", () => ({
   app: {
-    getPath: () => '/tmp/orca-user-data'
-  }
-}))
+    getPath: () => "/tmp/orca-user-data",
+  },
+}));
 
-vi.mock('os', async (importOriginal) => {
-  const actual = await importOriginal<typeof osModule>()
+vi.mock("os", async (importOriginal) => {
+  const actual = await importOriginal<typeof osModule>();
   return {
     ...actual,
-    homedir: homedirMock.mockImplementation(actual.homedir)
-  }
-})
+    homedir: homedirMock.mockImplementation(actual.homedir),
+  };
+});
 
-import { AntigravityHookService } from '../antigravity/hook-service'
-import { ClaudeHookService } from '../claude/hook-service'
-import { getRemoteManagedCommand } from '../claude/hook-settings'
-import { CodexHookService } from '../codex/hook-service'
-import { CommandCodeHookService } from '../command-code/hook-service'
-import { CopilotHookService } from '../copilot/hook-service'
-import { CursorHookService } from '../cursor/hook-service'
-import { DevinHookService } from '../devin/hook-service'
-import { DroidHookService } from '../droid/hook-service'
-import { GeminiHookService } from '../gemini/hook-service'
-import { GrokHookService } from '../grok/hook-service'
-import { KimiHookService } from '../kimi/hook-service'
+import { AntigravityHookService } from "../antigravity/hook-service";
+import { ClaudeHookService } from "../claude/hook-service";
+import { getRemoteManagedCommand } from "../claude/hook-settings";
+import { CodexHookService } from "../codex/hook-service";
+import { CommandCodeHookService } from "../command-code/hook-service";
+import { CopilotHookService } from "../copilot/hook-service";
+import { CursorHookService } from "../cursor/hook-service";
+import { DevinHookService } from "../devin/hook-service";
+import { DroidHookService } from "../droid/hook-service";
+import { GeminiHookService } from "../gemini/hook-service";
+import { GrokHookService } from "../grok/hook-service";
+import { KimiHookService } from "../kimi/hook-service";
 
-import { openClaudeHookService } from '../openclaude/hook-service'
-import { wrapPosixHookCommand, wrapWindowsHookCommand } from './installer-utils'
+import { openClaudeHookService } from "../openclaude/hook-service";
+import {
+  wrapPosixHookCommand,
+  wrapWindowsHookCommand,
+} from "./installer-utils";
 import {
   POSIX_HOOK_JSON_STDIN_PRELUDE,
   POSIX_HOOK_JSON_STDIN_READER,
   POSIX_HOOK_STDIN_READER,
-  WINDOWS_POWERSHELL_HOOK_ENVIRONMENT_GUARD
-} from './hook-stdin-contract'
-import { wrapRuntimeHomeHookCommand } from './runtime-home-hook-command'
-import { createAgentHookMemorySftp } from './agent-hook-memory-sftp.test-fixture'
-import { findGitBash } from './windows-git-bash-path.test-fixture'
+  WINDOWS_POWERSHELL_HOOK_ENVIRONMENT_GUARD,
+} from "./hook-stdin-contract";
+import { wrapRuntimeHomeHookCommand } from "./runtime-home-hook-command";
+import { createAgentHookMemorySftp } from "./agent-hook-memory-sftp.test-fixture";
+import { findGitBash } from "./windows-git-bash-path.test-fixture";
 import {
   buildWindowsNativeHookExecutable,
-  WINDOWS_NATIVE_HOOK_BUILD_TIMEOUT_MS
-} from './windows-native-hook-exe.test-fixture'
+  WINDOWS_NATIVE_HOOK_BUILD_TIMEOUT_MS,
+} from "./windows-native-hook-exe.test-fixture";
 
 function decodeEncodedPowerShellCommand(command: string): string {
-  const encoded = command.match(/-EncodedCommand\s+(\S+)/)
-  expect(encoded, 'launcher carries an encoded command').not.toBeNull()
-  return Buffer.from(encoded![1], 'base64').toString('utf16le')
+  const encoded = command.match(/-EncodedCommand\s+(\S+)/);
+  expect(encoded, "launcher carries an encoded command").not.toBeNull();
+  return Buffer.from(encoded![1], "base64").toString("utf16le");
 }
 
-const REMOTE_HOME = '/home/dev'
+const REMOTE_HOME = "/home/dev";
 // Windows broken-pipe errors vary with pipe and process teardown ordering.
-const WRITER_BROKEN_BY_EARLY_EXIT = ['EPIPE', 'ECONNRESET', 'EOF']
-const LARGE_PAYLOAD = Buffer.alloc(1_000_000, 'x')
+const WRITER_BROKEN_BY_EARLY_EXIT = ["EPIPE", "ECONNRESET", "EOF"];
+const LARGE_PAYLOAD = Buffer.alloc(1_000_000, "x");
 
 // Seed the user's usual AutoRun target so profile redirection cannot introduce cmd stderr noise.
 function seedCmdAutoRunTarget(profileDir: string): void {
-  mkdirSync(profileDir, { recursive: true })
-  writeFileSync(join(profileDir, '.cmd_aliases.cmd'), '@echo off\r\n', 'utf8')
+  mkdirSync(profileDir, { recursive: true });
+  writeFileSync(join(profileDir, ".cmd_aliases.cmd"), "@echo off\r\n", "utf8");
 }
 const REMOTE_INSTALLERS = [
   {
-    agent: 'antigravity',
-    install: (sftp: SFTPWrapper) => new AntigravityHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "antigravity",
+    install: (sftp: SFTPWrapper) =>
+      new AntigravityHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'claude',
-    install: (sftp: SFTPWrapper) => new ClaudeHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "claude",
+    install: (sftp: SFTPWrapper) =>
+      new ClaudeHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'openclaude',
-    install: (sftp: SFTPWrapper) => openClaudeHookService.installRemote(sftp, REMOTE_HOME)
+    agent: "openclaude",
+    install: (sftp: SFTPWrapper) =>
+      openClaudeHookService.installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'codex',
-    install: (sftp: SFTPWrapper) => new CodexHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "codex",
+    install: (sftp: SFTPWrapper) =>
+      new CodexHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'command-code',
-    install: (sftp: SFTPWrapper) => new CommandCodeHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "command-code",
+    install: (sftp: SFTPWrapper) =>
+      new CommandCodeHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'copilot',
-    install: (sftp: SFTPWrapper) => new CopilotHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "copilot",
+    install: (sftp: SFTPWrapper) =>
+      new CopilotHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'cursor',
-    install: (sftp: SFTPWrapper) => new CursorHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "cursor",
+    install: (sftp: SFTPWrapper) =>
+      new CursorHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'devin',
-    install: (sftp: SFTPWrapper) => new DevinHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "devin",
+    install: (sftp: SFTPWrapper) =>
+      new DevinHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'droid',
-    install: (sftp: SFTPWrapper) => new DroidHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "droid",
+    install: (sftp: SFTPWrapper) =>
+      new DroidHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'gemini',
-    install: (sftp: SFTPWrapper) => new GeminiHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "gemini",
+    install: (sftp: SFTPWrapper) =>
+      new GeminiHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'grok',
-    install: (sftp: SFTPWrapper) => new GrokHookService().installRemote(sftp, REMOTE_HOME)
+    agent: "grok",
+    install: (sftp: SFTPWrapper) =>
+      new GrokHookService().installRemote(sftp, REMOTE_HOME),
   },
   {
-    agent: 'kimi',
-    install: (sftp: SFTPWrapper) => new KimiHookService().installRemote(sftp, REMOTE_HOME)
-  }
-] as const
+    agent: "kimi",
+    install: (sftp: SFTPWrapper) =>
+      new KimiHookService().installRemote(sftp, REMOTE_HOME),
+  },
+] as const;
 
 const LOCAL_INSTALLERS = [
-  { agent: 'antigravity', install: () => new AntigravityHookService().install() },
-  { agent: 'claude', install: () => new ClaudeHookService().install() },
-  { agent: 'openclaude', install: () => openClaudeHookService.install() },
-  { agent: 'codex', install: () => new CodexHookService().install() },
-  { agent: 'command-code', install: () => new CommandCodeHookService().install() },
-  { agent: 'copilot', install: () => new CopilotHookService().install() },
-  { agent: 'cursor', install: () => new CursorHookService().install() },
-  { agent: 'devin', install: () => new DevinHookService().install() },
-  { agent: 'droid', install: () => new DroidHookService().install() },
-  { agent: 'gemini', install: () => new GeminiHookService().install() },
-  { agent: 'grok', install: () => new GrokHookService().install() },
-  { agent: 'kimi', install: () => new KimiHookService().install() }
-] as const
+  {
+    agent: "antigravity",
+    install: () => new AntigravityHookService().install(),
+  },
+  { agent: "claude", install: () => new ClaudeHookService().install() },
+  { agent: "openclaude", install: () => openClaudeHookService.install() },
+  { agent: "codex", install: () => new CodexHookService().install() },
+  {
+    agent: "command-code",
+    install: () => new CommandCodeHookService().install(),
+  },
+  { agent: "copilot", install: () => new CopilotHookService().install() },
+  { agent: "cursor", install: () => new CursorHookService().install() },
+  { agent: "devin", install: () => new DevinHookService().install() },
+  { agent: "droid", install: () => new DroidHookService().install() },
+  { agent: "gemini", install: () => new GeminiHookService().install() },
+  { agent: "grok", install: () => new GrokHookService().install() },
+  { agent: "kimi", install: () => new KimiHookService().install() },
+] as const;
 
 type HookRun = {
-  exitCode: number | null
-  stdinErrors: NodeJS.ErrnoException[]
-  stderr: string
-  stdout: string
-}
+  exitCode: number | null;
+  stdinErrors: NodeJS.ErrnoException[];
+  stderr: string;
+  stdout: string;
+};
 
 function runHookProcess(
   executable: string,
   args: string[],
   env: NodeJS.ProcessEnv,
   // An open, unwritten pipe exposes read-to-EOF hangs outside an Orca pane.
-  stdin: 'close' | 'abandon' = 'close'
+  stdin: "close" | "abandon" = "close",
 ): Promise<HookRun> {
   return new Promise((resolve, reject) => {
     const child = spawnProcess({
       program: executable,
       args,
       env,
-      stdio: 'pipe'
-    })
-    const stdinErrors: NodeJS.ErrnoException[] = []
-    let stderr = ''
-    let stdout = ''
+      stdio: "pipe",
+    });
+    const stdinErrors: NodeJS.ErrnoException[] = [];
+    let stderr = "";
+    let stdout = "";
+    const startedAt = performance.now();
+    let exitedAt: number | null = null;
+    let exitCodeSeen: number | null = null;
+    const openStreams = new Set(["stdout", "stderr"]);
+    child.stdout.on("end", () => openStreams.delete("stdout"));
+    child.stderr.on("end", () => openStreams.delete("stderr"));
+    child.on("exit", (code) => {
+      exitedAt = performance.now();
+      exitCodeSeen = code;
+    });
     const timeout = setTimeout(() => {
-      child.stdin.destroy()
-      child.kill('SIGKILL')
-      reject(new Error(`hook did not finish with stdin ${stdin}d`))
-    }, 10_000)
-    child.on('error', (error) => {
-      clearTimeout(timeout)
-      reject(error)
-    })
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString()
-    })
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
-    })
-    child.stdin.on('error', (error: NodeJS.ErrnoException) => stdinErrors.push(error))
-    child.on('close', (exitCode) => {
-      clearTimeout(timeout)
-      resolve({ exitCode, stdinErrors, stderr, stdout })
-    })
-    if (stdin === 'close') {
-      child.stdin.end(LARGE_PAYLOAD)
+      child.stdin.destroy();
+      child.kill("SIGKILL");
+      // Name the hung hook and whether the process or its inherited pipes outlived the deadline.
+      const target = args.at(-1)?.slice(-160) ?? "";
+      const exitState =
+        exitedAt === null
+          ? "process still running"
+          : `exited ${exitCodeSeen} after ${Math.round(exitedAt - startedAt)}ms`;
+      reject(
+        new Error(
+          `hook did not finish with stdin ${stdin}d: ${executable} ${target}; ${exitState}; ` +
+            `open pipes [${[...openStreams].join(", ")}]; stdin errors [${stdinErrors
+              .map((error) => error.code)
+              .join(", ")}]; stdout ${JSON.stringify(stdout.slice(-400))}; ` +
+            `stderr ${JSON.stringify(stderr.slice(-400))}`,
+        ),
+      );
+    }, 10_000);
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.stdin.on("error", (error: NodeJS.ErrnoException) =>
+      stdinErrors.push(error),
+    );
+    child.on("close", (exitCode) => {
+      clearTimeout(timeout);
+      resolve({ exitCode, stdinErrors, stderr, stdout });
+    });
+    if (stdin === "close") {
+      child.stdin.end(LARGE_PAYLOAD);
     }
-  })
+  });
 }
 
 function hookEnvironment(extraEnv: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith('ORCA_'))
-  )
+    Object.entries(process.env).filter(([key]) => !key.startsWith("ORCA_")),
+  );
   return {
     ...env,
     HOME: REMOTE_HOME,
-    ORCA_AGENT_HOOK_ENDPOINT: '',
-    ...extraEnv
-  }
+    ORCA_AGENT_HOOK_ENDPOINT: "",
+    ...extraEnv,
+  };
 }
 
-function runPosixHook(command: string, extraEnv: NodeJS.ProcessEnv = {}): Promise<HookRun> {
-  return runHookProcess('/bin/sh', ['-c', command], hookEnvironment(extraEnv))
+function runPosixHook(
+  command: string,
+  extraEnv: NodeJS.ProcessEnv = {},
+): Promise<HookRun> {
+  return runHookProcess("/bin/sh", ["-c", command], hookEnvironment(extraEnv));
 }
 
 async function generatePosixScripts(): Promise<Map<string, string>> {
-  const scripts = new Map<string, string>()
+  const scripts = new Map<string, string>();
   for (const entry of REMOTE_INSTALLERS) {
-    const memory = createAgentHookMemorySftp()
-    const status = await entry.install(memory.sftp)
-    expect(status.state, `${entry.agent} install status`).toBe('installed')
+    const memory = createAgentHookMemorySftp();
+    const status = await entry.install(memory.sftp);
+    expect(status.state, `${entry.agent} install status`).toBe("installed");
     const generated = [...memory.fs.files.entries()].filter(
-      ([path]) => path.includes('/.orca/agent-hooks/') && path.endsWith('.sh')
-    )
-    expect(generated.length, `${entry.agent} generated scripts`).toBeGreaterThan(0)
+      ([path]) => path.includes("/.orca/agent-hooks/") && path.endsWith(".sh"),
+    );
+    expect(
+      generated.length,
+      `${entry.agent} generated scripts`,
+    ).toBeGreaterThan(0);
     for (const [path, script] of generated) {
-      scripts.set(`${entry.agent} ${path.split('/').pop()}`, script)
+      scripts.set(`${entry.agent} ${path.split("/").pop()}`, script);
     }
   }
-  return scripts
+  return scripts;
 }
 
 // Keep the platform override pinned across asynchronous installers.
-async function withPlatform<T>(platform: NodeJS.Platform, run: () => T | Promise<T>): Promise<T> {
-  const original = Object.getOwnPropertyDescriptor(process, 'platform')
-  Object.defineProperty(process, 'platform', { configurable: true, value: platform })
+async function withPlatform<T>(
+  platform: NodeJS.Platform,
+  run: () => T | Promise<T>,
+): Promise<T> {
+  const original = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", {
+    configurable: true,
+    value: platform,
+  });
   try {
-    return await run()
+    return await run();
   } finally {
     if (original) {
-      Object.defineProperty(process, 'platform', original)
+      Object.defineProperty(process, "platform", original);
     }
   }
 }
 
-describe('Windows managed hook stdin structure', () => {
-  it('exits immediately when Orca env is missing and keeps drain for other failures', async () => {
-    const home = mkdtempSync(join(tmpdir(), 'orca-hook-stdin-windows-'))
-    homedirMock.mockReturnValue(home)
-    seedCmdAutoRunTarget(home)
-    const previousGrokHome = process.env.GROK_HOME
-    const previousKimiHome = process.env.KIMI_CODE_HOME
-    delete process.env.GROK_HOME
-    delete process.env.KIMI_CODE_HOME
+describe("Windows managed hook stdin structure", () => {
+  it("exits immediately when Orca env is missing and keeps drain for other failures", async () => {
+    const home = mkdtempSync(join(tmpdir(), "orca-hook-stdin-windows-"));
+    homedirMock.mockReturnValue(home);
+    seedCmdAutoRunTarget(home);
+    const previousGrokHome = process.env.GROK_HOME;
+    const previousKimiHome = process.env.KIMI_CODE_HOME;
+    delete process.env.GROK_HOME;
+    delete process.env.KIMI_CODE_HOME;
     try {
-      await withPlatform('win32', async () => {
+      await withPlatform("win32", async () => {
         for (const entry of LOCAL_INSTALLERS) {
-          expect((await entry.install()).state, `${entry.agent} install status`).toBe('installed')
+          expect(
+            (await entry.install()).state,
+            `${entry.agent} install status`,
+          ).toBe("installed");
         }
-      })
-      const hooksDir = join(home, '.orca', 'agent-hooks')
-      const fileNames = readdirSync(hooksDir)
+      });
+      const hooksDir = join(home, ".orca", "agent-hooks");
+      const fileNames = readdirSync(hooksDir);
       const mainBatchScripts = fileNames.filter(
-        (name) => name.endsWith('-hook.cmd') && !name.startsWith('antigravity-')
-      )
-      mainBatchScripts.push('antigravity-hook.cmd')
-      expect(mainBatchScripts).toHaveLength(12)
+        (name) =>
+          name.endsWith("-hook.cmd") && !name.startsWith("antigravity-"),
+      );
+      mainBatchScripts.push("antigravity-hook.cmd");
+      expect(mainBatchScripts).toHaveLength(12);
       for (const fileName of mainBatchScripts) {
-        const script = readFileSync(join(hooksDir, fileName), 'utf8')
+        const script = readFileSync(join(hooksDir, fileName), "utf8");
         expect(script, `${fileName} port guard`).toContain(
-          'if "%ORCA_AGENT_HOOK_PORT%"=="" exit /b 0'
-        )
+          'if "%ORCA_AGENT_HOOK_PORT%"=="" exit /b 0',
+        );
         expect(script, `${fileName} token guard`).toContain(
-          'if "%ORCA_AGENT_HOOK_TOKEN%"=="" exit /b 0'
-        )
-        expect(script, `${fileName} pane guard`).toContain('if "%ORCA_PANE_KEY%"=="" exit /b 0')
+          'if "%ORCA_AGENT_HOOK_TOKEN%"=="" exit /b 0',
+        );
+        expect(script, `${fileName} pane guard`).toContain(
+          'if "%ORCA_PANE_KEY%"=="" exit /b 0',
+        );
         // Catch every ORCA_* guard routed to the drain, including future variables and alternate guard syntax.
-        expect(script, `${fileName} no ORCA_* guard may route to the more.com drain`).not.toMatch(
-          /ORCA_[A-Z_]+.*goto :?orca_agent_hook_drain_stdin/
-        )
-        if (fileName === 'antigravity-hook.cmd') {
-          expect(script).not.toContain('more.com')
-          expect(script).toContain('antigravity-hook-post.cjs')
-          continue
+        expect(
+          script,
+          `${fileName} no ORCA_* guard may route to the more.com drain`,
+        ).not.toMatch(/ORCA_[A-Z_]+.*goto :?orca_agent_hook_drain_stdin/);
+        if (fileName === "antigravity-hook.cmd") {
+          expect(script).not.toContain("more.com");
+          expect(script).toContain("antigravity-hook-post.cjs");
+          continue;
         }
         // Claude's Devin-import skip still uses the shared drain after the context guards.
         expect(script, `${fileName} drain epilogue`).toContain(
           [
-            ':orca_agent_hook_drain_stdin',
+            ":orca_agent_hook_drain_stdin",
             '"%SystemRoot%\\System32\\more.com" >nul 2>nul',
-            'exit /b 0'
-          ].join('\r\n')
-        )
+            "exit /b 0",
+          ].join("\r\n"),
+        );
       }
 
       // Guard Orca context before the Devin skip can reach a hanging drain.
-      const claude = readFileSync(join(hooksDir, 'claude-hook-impl.cmd'), 'utf8')
-      expect(claude, 'claude devin guard present').toContain(
-        'if not "%DEVIN_PROJECT_DIR%"=="" goto :orca_agent_hook_drain_stdin'
-      )
-      expect(claude.indexOf('if "%ORCA_PANE_KEY%"=="" exit /b 0')).toBeGreaterThanOrEqual(0)
+      const claude = readFileSync(
+        join(hooksDir, "claude-hook-impl.cmd"),
+        "utf8",
+      );
+      expect(claude, "claude devin guard present").toContain(
+        'if not "%DEVIN_PROJECT_DIR%"=="" goto :orca_agent_hook_drain_stdin',
+      );
+      expect(
+        claude.indexOf('if "%ORCA_PANE_KEY%"=="" exit /b 0'),
+      ).toBeGreaterThanOrEqual(0);
       expect(claude.indexOf('if "%ORCA_PANE_KEY%"=="" exit /b 0')).toBeLessThan(
-        claude.indexOf('if not "%DEVIN_PROJECT_DIR%"=="" goto :orca_agent_hook_drain_stdin')
-      )
+        claude.indexOf(
+          'if not "%DEVIN_PROJECT_DIR%"=="" goto :orca_agent_hook_drain_stdin',
+        ),
+      );
 
       // Missing-script launchers must answer gates before guarding, then guard before ReadToEnd.
       for (const [name, command] of [
         [
-          'wrapWindowsHookCommand',
-          wrapWindowsHookCommand('C:\\missing\\orca-hook.cmd', {}, { fallbackStdout: '{}' })
+          "wrapWindowsHookCommand",
+          wrapWindowsHookCommand(
+            "C:\\missing\\orca-hook.cmd",
+            {},
+            { fallbackStdout: "{}" },
+          ),
         ],
         [
-          'wrapRuntimeHomeHookCommand',
-          wrapRuntimeHomeHookCommand('missing-orca-hook', { neutralJsonWhenMissing: true })
-        ]
+          "wrapRuntimeHomeHookCommand",
+          wrapRuntimeHomeHookCommand("missing-orca-hook", {
+            neutralJsonWhenMissing: true,
+          }),
+        ],
       ] as const) {
-        const decoded = decodeEncodedPowerShellCommand(command)
-        expect(decoded, `${name} decoded`).toContain(WINDOWS_POWERSHELL_HOOK_ENVIRONMENT_GUARD)
+        const decoded = decodeEncodedPowerShellCommand(command);
+        expect(decoded, `${name} decoded`).toContain(
+          WINDOWS_POWERSHELL_HOOK_ENVIRONMENT_GUARD,
+        );
         expect(
           decoded.indexOf("Write-Output '{}'"),
-          `${name} response exists`
-        ).toBeGreaterThanOrEqual(0)
-        expect(decoded.indexOf("Write-Output '{}'"), `${name} answers first`).toBeLessThan(
-          decoded.indexOf(WINDOWS_POWERSHELL_HOOK_ENVIRONMENT_GUARD)
-        )
+          `${name} response exists`,
+        ).toBeGreaterThanOrEqual(0);
+        expect(
+          decoded.indexOf("Write-Output '{}'"),
+          `${name} answers first`,
+        ).toBeLessThan(
+          decoded.indexOf(WINDOWS_POWERSHELL_HOOK_ENVIRONMENT_GUARD),
+        );
         expect(
           decoded.indexOf(WINDOWS_POWERSHELL_HOOK_ENVIRONMENT_GUARD),
-          `${name} guards before owning stdin`
-        ).toBeLessThan(decoded.indexOf('[Console]::In.ReadToEnd()'))
+          `${name} guards before owning stdin`,
+        ).toBeLessThan(decoded.indexOf("[Console]::In.ReadToEnd()"));
       }
     } finally {
-      homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir())
+      homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir());
       if (previousGrokHome === undefined) {
-        delete process.env.GROK_HOME
+        delete process.env.GROK_HOME;
       } else {
-        process.env.GROK_HOME = previousGrokHome
+        process.env.GROK_HOME = previousGrokHome;
       }
       if (previousKimiHome === undefined) {
-        delete process.env.KIMI_CODE_HOME
+        delete process.env.KIMI_CODE_HOME;
       } else {
-        process.env.KIMI_CODE_HOME = previousKimiHome
+        process.env.KIMI_CODE_HOME = previousKimiHome;
       }
-      rmSync(home, { recursive: true, force: true })
+      rmSync(home, { recursive: true, force: true });
     }
-  })
+  });
 
-  it.skipIf(process.platform !== 'win32')(
-    'exits 0 for every local script and missing-script launcher, dropping stdin only without Orca env',
+  it.skipIf(process.platform !== "win32")(
+    "exits 0 for every local script and missing-script launcher, dropping stdin only without Orca env",
     async () => {
-      const home = mkdtempSync(join(tmpdir(), 'orca-hook-stdin-windows-live-'))
-      homedirMock.mockReturnValue(home)
-      seedCmdAutoRunTarget(home)
+      const home = mkdtempSync(join(tmpdir(), "orca-hook-stdin-windows-live-"));
+      homedirMock.mockReturnValue(home);
+      seedCmdAutoRunTarget(home);
       try {
-        const gitBash = findGitBash()
+        const gitBash = findGitBash();
         for (const entry of LOCAL_INSTALLERS) {
-          expect((await entry.install()).state, `${entry.agent} install status`).toBe('installed')
+          expect(
+            (await entry.install()).state,
+            `${entry.agent} install status`,
+          ).toBe("installed");
         }
-        const hooksDir = join(home, '.orca', 'agent-hooks')
+        const hooksDir = join(home, ".orca", "agent-hooks");
         const mainScripts = readdirSync(hooksDir).filter(
           (name) =>
-            name === 'antigravity-hook.cmd' ||
-            name.endsWith('-hook.ps1') ||
-            name.endsWith('-hook.sh') ||
-            (name.endsWith('-hook.cmd') && !name.startsWith('antigravity-'))
-        )
-        expect(mainScripts).toHaveLength(12)
+            name === "antigravity-hook.cmd" ||
+            name.endsWith("-hook.ps1") ||
+            name.endsWith("-hook.sh") ||
+            (name.endsWith("-hook.cmd") && !name.startsWith("antigravity-")),
+        );
+        expect(mainScripts).toHaveLength(12);
         for (const fileName of mainScripts) {
-          const scriptPath = join(hooksDir, fileName)
-          const executable = fileName.endsWith('.cmd')
-            ? 'cmd.exe'
-            : fileName.endsWith('.ps1')
+          const scriptPath = join(hooksDir, fileName);
+          const executable = fileName.endsWith(".cmd")
+            ? "cmd.exe"
+            : fileName.endsWith(".ps1")
               ? join(
-                  process.env.SystemRoot ?? 'C:\\Windows',
-                  'System32',
-                  'WindowsPowerShell',
-                  'v1.0',
-                  'powershell.exe'
+                  process.env.SystemRoot ?? "C:\\Windows",
+                  "System32",
+                  "WindowsPowerShell",
+                  "v1.0",
+                  "powershell.exe",
                 )
-              : gitBash
-          const args = fileName.endsWith('.cmd')
-            ? ['/d', '/c', scriptPath]
-            : fileName.endsWith('.ps1')
-              ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath]
-              : [scriptPath]
-          const result = await runHookProcess(executable, args, hookEnvironment())
-          expect(result.exitCode, `${fileName} exit code`).toBe(0)
+              : gitBash;
+          const args = fileName.endsWith(".cmd")
+            ? ["/d", "/c", scriptPath]
+            : fileName.endsWith(".ps1")
+              ? [
+                  "-NoProfile",
+                  "-ExecutionPolicy",
+                  "Bypass",
+                  "-File",
+                  scriptPath,
+                ]
+              : [scriptPath];
+          const result = await runHookProcess(
+            executable,
+            args,
+            hookEnvironment(),
+          );
+          expect(result.exitCode, `${fileName} exit code`).toBe(0);
           // Only missing-context Windows paths permit broken writers; in-pane hooks must drain.
           for (const error of result.stdinErrors) {
-            expect(WRITER_BROKEN_BY_EARLY_EXIT, `${fileName} stdin error`).toContain(error.code)
+            expect(
+              WRITER_BROKEN_BY_EARLY_EXIT,
+              `${fileName} stdin error`,
+            ).toContain(error.code);
           }
         }
 
-        const missingScript = 'C:\\missing\\orca-hook.cmd'
+        const missingScript = "C:\\missing\\orca-hook.cmd";
         // Bare .cmd launchers must remain directly spawnable; only interpreter launchers can drain a missing script.
         const launcherCases = [
           {
-            name: 'encoded PowerShell',
-            executable: 'cmd.exe',
-            args: ['/d', '/c', wrapWindowsHookCommand(missingScript)]
+            name: "encoded PowerShell",
+            executable: "cmd.exe",
+            args: ["/d", "/c", wrapWindowsHookCommand(missingScript)],
           },
           {
-            name: 'portable Git Bash launcher',
+            name: "portable Git Bash launcher",
             executable: gitBash,
-            args: ['-lc', wrapRuntimeHomeHookCommand('missing-orca-hook')]
-          }
-        ]
+            args: ["-lc", wrapRuntimeHomeHookCommand("missing-orca-hook")],
+          },
+        ];
         for (const launcher of launcherCases) {
           const outside = await runHookProcess(
             launcher.executable,
             launcher.args,
-            hookEnvironment()
-          )
-          expect(outside.exitCode, `${launcher.name} exit code`).toBe(0)
+            hookEnvironment(),
+          );
+          expect(outside.exitCode, `${launcher.name} exit code`).toBe(0);
           for (const error of outside.stdinErrors) {
-            expect(WRITER_BROKEN_BY_EARLY_EXIT, `${launcher.name} stdin error`).toContain(
-              error.code
-            )
+            expect(
+              WRITER_BROKEN_BY_EARLY_EXIT,
+              `${launcher.name} stdin error`,
+            ).toContain(error.code);
           }
           const insideAPane = await runHookProcess(
             launcher.executable,
             launcher.args,
             hookEnvironment({
-              ORCA_AGENT_HOOK_PORT: '59999',
-              ORCA_AGENT_HOOK_TOKEN: 'token',
-              ORCA_PANE_KEY: 'tab:leaf'
-            })
-          )
-          expect(insideAPane.exitCode, `${launcher.name} in-pane exit code`).toBe(0)
-          expect(insideAPane.stdinErrors, `${launcher.name} in-pane stdin errors`).toHaveLength(0)
+              ORCA_AGENT_HOOK_PORT: "59999",
+              ORCA_AGENT_HOOK_TOKEN: "token",
+              ORCA_PANE_KEY: "tab:leaf",
+            }),
+          );
+          expect(
+            insideAPane.exitCode,
+            `${launcher.name} in-pane exit code`,
+          ).toBe(0);
+          expect(
+            insideAPane.stdinErrors,
+            `${launcher.name} in-pane stdin errors`,
+          ).toHaveLength(0);
           // Closing stdin masks ReadToEnd hangs; an abandoned pipe exposes them.
           const abandoned = await runHookProcess(
             launcher.executable,
             launcher.args,
             hookEnvironment(),
-            'abandon'
-          )
-          expect(abandoned.exitCode, `${launcher.name} abandoned-stdin exit code`).toBe(0)
+            "abandon",
+          );
+          expect(
+            abandoned.exitCode,
+            `${launcher.name} abandoned-stdin exit code`,
+          ).toBe(0);
         }
       } finally {
-        homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir())
-        rmSync(home, { recursive: true, force: true })
+        homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir());
+        rmSync(home, { recursive: true, force: true });
       }
-    }
-  )
+    },
+  );
 
   // Command-shape assertions missed conhost discarding the consumer's JSON output.
-  it.skipIf(process.platform !== 'win32').each([
-    { form: 'claude-hook.cmd', bundled: false },
-    { form: 'orca-agent-hook.exe claude', bundled: true }
+  it.skipIf(process.platform !== "win32").each([
+    { form: "claude-hook.cmd", bundled: false },
+    { form: "orca-agent-hook.exe claude", bundled: true },
   ])(
-    'emits parseable JSON on stdout from the registered Claude hook command ($form), through cmd.exe and Git Bash',
+    "emits parseable JSON on stdout from the registered Claude hook command ($form), through cmd.exe and Git Bash",
     async ({ form, bundled }) => {
-      const home = mkdtempSync(join(tmpdir(), 'orca-hook-stdout-json-'))
-      homedirMock.mockReturnValue(home)
-      const absentProfile = join(home, 'absent')
-      seedCmdAutoRunTarget(home)
-      seedCmdAutoRunTarget(absentProfile)
+      const home = mkdtempSync(join(tmpdir(), "orca-hook-stdout-json-"));
+      homedirMock.mockReturnValue(home);
+      const absentProfile = join(home, "absent");
+      seedCmdAutoRunTarget(home);
+      seedCmdAutoRunTarget(absentProfile);
       try {
-        bundledHook.path = bundled ? buildWindowsNativeHookExecutable() : null
-        expect(new ClaudeHookService().install().state).toBe('installed')
+        bundledHook.path = bundled ? buildWindowsNativeHookExecutable() : null;
+        expect(new ClaudeHookService().install().state).toBe("installed");
         const settings = JSON.parse(
-          readFileSync(join(home, '.claude', 'settings.json'), 'utf8')
-        ) as { hooks: Record<string, { hooks: { command: string; args?: string[] }[] }[]> }
-        const entry = settings.hooks.PreToolUse[0].hooks[0]
-        expect(entry.args).toBeUndefined()
-        expect(entry.command.endsWith(form)).toBe(true)
+          readFileSync(join(home, ".claude", "settings.json"), "utf8"),
+        ) as {
+          hooks: Record<
+            string,
+            { hooks: { command: string; args?: string[] }[] }[]
+          >;
+        };
+        const entry = settings.hooks.PreToolUse[0].hooks[0];
+        expect(entry.args).toBeUndefined();
+        expect(entry.command.endsWith(form)).toBe(true);
 
         // MSYS rewrites paths and switches, so exercise both shells.
-        const gitBash = findGitBash()
+        const gitBash = findGitBash();
         const shells = [
-          { name: 'cmd.exe', executable: 'cmd.exe', args: ['/d', '/c', entry.command] },
-          { name: 'Git Bash', executable: gitBash, args: ['-c', entry.command] }
-        ]
-        const environments = [
-          { name: 'no Orca env', env: hookEnvironment({ USERPROFILE: home }) },
           {
-            name: 'Orca env with dead listener',
+            name: "cmd.exe",
+            executable: "cmd.exe",
+            args: ["/d", "/c", entry.command],
+          },
+          {
+            name: "Git Bash",
+            executable: gitBash,
+            args: ["-c", entry.command],
+          },
+        ];
+        const environments = [
+          { name: "no Orca env", env: hookEnvironment({ USERPROFILE: home }) },
+          {
+            name: "Orca env with dead listener",
             env: hookEnvironment({
               USERPROFILE: home,
-              ORCA_AGENT_HOOK_PORT: '59999',
-              ORCA_AGENT_HOOK_TOKEN: 'token',
-              ORCA_PANE_KEY: 'tab:leaf'
-            })
+              ORCA_AGENT_HOOK_PORT: "59999",
+              ORCA_AGENT_HOOK_TOKEN: "token",
+              ORCA_PANE_KEY: "tab:leaf",
+            }),
           },
           {
             // Profile redirection hides runtime-resolved scripts; direct launchers retain their absolute path.
-            name: 'missing managed script',
-            env: hookEnvironment({ USERPROFILE: absentProfile })
-          }
-        ]
+            name: "missing managed script",
+            env: hookEnvironment({ USERPROFILE: absentProfile }),
+          },
+        ];
         for (const shell of shells) {
           for (const environment of environments) {
-            const label = `${shell.name} / ${environment.name}`
-            const result = await runHookProcess(shell.executable, shell.args, environment.env)
-            expect(result.exitCode, `${label} exit code`).toBe(0)
-            expect(result.stderr, `${label} stderr`).toBe('')
-            expect(() => JSON.parse(result.stdout.trim()), `${label} stdout is JSON`).not.toThrow()
-            expect(JSON.parse(result.stdout.trim()), `${label} stdout`).toEqual({})
+            const label = `${shell.name} / ${environment.name}`;
+            const result = await runHookProcess(
+              shell.executable,
+              shell.args,
+              environment.env,
+            );
+            expect(result.exitCode, `${label} exit code`).toBe(0);
+            expect(result.stderr, `${label} stderr`).toBe("");
+            expect(
+              () => JSON.parse(result.stdout.trim()),
+              `${label} stdout is JSON`,
+            ).not.toThrow();
+            expect(JSON.parse(result.stdout.trim()), `${label} stdout`).toEqual(
+              {},
+            );
           }
           if (bundled) {
             const abandoned = await runHookProcess(
               shell.executable,
               shell.args,
               environments[0].env,
-              'abandon'
-            )
-            expect(abandoned.exitCode, `${shell.name} abandoned-stdin exit code`).toBe(0)
+              "abandon",
+            );
+            expect(
+              abandoned.exitCode,
+              `${shell.name} abandoned-stdin exit code`,
+            ).toBe(0);
           }
         }
       } finally {
-        bundledHook.path = null
-        homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir())
-        rmSync(home, { recursive: true, force: true })
+        bundledHook.path = null;
+        homedirMock.mockImplementation(() => process.env.HOME ?? tmpdir());
+        rmSync(home, { recursive: true, force: true });
       }
     },
     // Allow cold executable builds and six shell launches under load.
-    WINDOWS_NATIVE_HOOK_BUILD_TIMEOUT_MS
-  )
-})
+    WINDOWS_NATIVE_HOOK_BUILD_TIMEOUT_MS,
+  );
+});
 
-describe.skipIf(process.platform === 'win32')('managed hook stdin lifecycle', () => {
-  it('emits neutral JSON when the Claude lifecycle script is missing', async () => {
-    const command = getRemoteManagedCommand('/home/dev/.orca/agent-hooks/claude-hook.sh')
-    const result = await runPosixHook(command)
+describe.skipIf(process.platform === "win32")(
+  "managed hook stdin lifecycle",
+  () => {
+    it("emits neutral JSON when the Claude lifecycle script is missing", async () => {
+      const command = getRemoteManagedCommand(
+        "/home/dev/.orca/agent-hooks/claude-hook.sh",
+      );
+      const result = await runPosixHook(command);
 
-    expect(result.exitCode).toBe(0)
-    expect(result.stdinErrors).toHaveLength(0)
-    expect(result.stderr).toBe('')
-    expect(JSON.parse(result.stdout.trim())).toEqual({})
-  })
+      expect(result.exitCode).toBe(0);
+      expect(result.stdinErrors).toHaveLength(0);
+      expect(result.stderr).toBe("");
+      expect(JSON.parse(result.stdout.trim())).toEqual({});
+    });
 
-  it('captures stdin before every possible whole-script success exit', async () => {
-    const scripts = await generatePosixScripts()
-    for (const [agent, script] of scripts) {
-      const captureIndex = Math.max(
-        script.indexOf(`payload=$(${POSIX_HOOK_STDIN_READER})`),
-        script.indexOf(`payload=$(${POSIX_HOOK_JSON_STDIN_READER})`)
-      )
-      const firstExitIndex = script.indexOf('exit 0')
-      expect(captureIndex, `${agent} payload capture`).toBeGreaterThanOrEqual(0)
-      expect(firstExitIndex, `${agent} first success exit`).toBeGreaterThan(captureIndex)
-      // The JSON reader needs its variable-setting prelude before capture.
-      if (script.includes(POSIX_HOOK_JSON_STDIN_READER)) {
-        const prelude = POSIX_HOOK_JSON_STDIN_PRELUDE.join('\n')
-        expect(script.indexOf(prelude), `${agent} JSON reader prelude`).toBeGreaterThanOrEqual(0)
-        expect(script.indexOf(prelude), `${agent} prelude before capture`).toBeLessThan(
-          captureIndex
-        )
+    it("captures stdin before every possible whole-script success exit", async () => {
+      const scripts = await generatePosixScripts();
+      for (const [agent, script] of scripts) {
+        const captureIndex = Math.max(
+          script.indexOf(`payload=$(${POSIX_HOOK_STDIN_READER})`),
+          script.indexOf(`payload=$(${POSIX_HOOK_JSON_STDIN_READER})`),
+        );
+        const firstExitIndex = script.indexOf("exit 0");
+        expect(captureIndex, `${agent} payload capture`).toBeGreaterThanOrEqual(
+          0,
+        );
+        expect(firstExitIndex, `${agent} first success exit`).toBeGreaterThan(
+          captureIndex,
+        );
+        // The JSON reader needs its variable-setting prelude before capture.
+        if (script.includes(POSIX_HOOK_JSON_STDIN_READER)) {
+          const prelude = POSIX_HOOK_JSON_STDIN_PRELUDE.join("\n");
+          expect(
+            script.indexOf(prelude),
+            `${agent} JSON reader prelude`,
+          ).toBeGreaterThanOrEqual(0);
+          expect(
+            script.indexOf(prelude),
+            `${agent} prelude before capture`,
+          ).toBeLessThan(captureIndex);
+        }
       }
-    }
-  })
+    });
 
-  it('accepts a large payload across generated hooks without breaking the writer', async () => {
-    const scripts = await generatePosixScripts()
-    for (const [agent, script] of scripts) {
-      const extraEnv = agent.startsWith('command-code')
-        ? {
-            ORCA_AGENT_HOOK_PORT: '1',
-            ORCA_AGENT_HOOK_TOKEN: 'test-token',
-            ORCA_PANE_KEY: 'test-pane'
+    it("accepts a large payload across generated hooks without breaking the writer", async () => {
+      const scripts = await generatePosixScripts();
+      for (const [agent, script] of scripts) {
+        const extraEnv = agent.startsWith("command-code")
+          ? {
+              ORCA_AGENT_HOOK_PORT: "1",
+              ORCA_AGENT_HOOK_TOKEN: "test-token",
+              ORCA_PANE_KEY: "test-pane",
+            }
+          : {};
+        const result = await runPosixHook(script, extraEnv);
+        expect(result.exitCode, `${agent} exit code`).toBe(0);
+        expect(result.stdinErrors, `${agent} stdin errors`).toHaveLength(0);
+      }
+    });
+
+    it("does not need PATH to capture or drain POSIX hook stdin", async () => {
+      const scripts = await generatePosixScripts();
+      for (const [agent, script] of scripts) {
+        const result = await runPosixHook(script, { PATH: "" });
+        expect(result.exitCode, `${agent} exit code`).toBe(0);
+        expect(result.stdinErrors, `${agent} stdin errors`).toHaveLength(0);
+      }
+
+      const missing = await runPosixHook(
+        wrapPosixHookCommand("/missing/orca-hook.sh"),
+        { PATH: "" },
+      );
+      expect(missing.exitCode, "missing script launcher exit code").toBe(0);
+      expect(
+        missing.stdinErrors,
+        "missing script launcher stdin errors",
+      ).toHaveLength(0);
+    });
+
+    // Exit zero does not prove stdin was consumed; measure captured bytes.
+    it.each([
+      ["empty PATH", ""],
+      // NixOS may lack /bin/cat; exercise the shell's default PATH.
+      ["PATH without coreutils", "/nonexistent"],
+      ["PATH whose first cat is a decoy", ""],
+    ])("captures the whole payload with %s", async (label, pathValue) => {
+      const decoyDir = mkdtempSync(join(tmpdir(), "orca-hook-stdin-decoy-"));
+      try {
+        let effectivePath = pathValue;
+        if (label === "PATH whose first cat is a decoy") {
+          const decoy = join(decoyDir, "cat");
+          writeFileSync(decoy, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+          effectivePath = decoyDir;
+        }
+        const result = await runHookProcess(
+          "/bin/sh",
+          [
+            "-c",
+            `payload=$(${POSIX_HOOK_STDIN_READER}); printf '%s' "${"${#payload}"}"`,
+          ],
+          { ...hookEnvironment(), PATH: effectivePath },
+        );
+        expect(result.exitCode, `${label} exit code`).toBe(0);
+        expect(result.stdinErrors, `${label} stdin errors`).toHaveLength(0);
+        expect(result.stdout, `${label} captured bytes`).toBe(
+          String(LARGE_PAYLOAD.length),
+        );
+      } finally {
+        rmSync(decoyDir, { recursive: true, force: true });
+      }
+    });
+
+    it("drains before Claude skips hooks imported by Devin", async () => {
+      const script = (await generatePosixScripts()).get(
+        "claude claude-hook.sh",
+      );
+      expect(script).toBeDefined();
+      const result = await runPosixHook(script!, {
+        DEVIN_PROJECT_DIR: "/tmp/devin-project",
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdinErrors).toHaveLength(0);
+    });
+
+    it("drains a large payload when the configured script is missing", async () => {
+      const result = await runPosixHook(
+        wrapPosixHookCommand("/missing/orca-hook.sh"),
+      );
+      expect(result.exitCode).toBe(0);
+      expect(result.stdinErrors).toHaveLength(0);
+    });
+  },
+);
+
+// TEMP EXPERIMENT: compare hidden-console and inherited-console spawn latency for a no-op hook.
+describe.skipIf(process.platform !== "win32")(
+  "TEMP hook spawn latency experiment",
+  () => {
+    it("measures exit and close latency per spawn mode", async () => {
+      const { spawn } = await import("node:child_process");
+      const dir = mkdtempSync(join(tmpdir(), "orca-hook-latency-"));
+      const script = join(dir, "noop-hook.cmd");
+      writeFileSync(
+        script,
+        '@echo off\r\nsetlocal\r\necho {}\r\nif "%ORCA_PANE_KEY%"=="" exit /b 0\r\nexit /b 0\r\n',
+      );
+      const env = hookEnvironment();
+      const modes = {
+        hidden: () =>
+          spawnProcess({
+            program: "cmd.exe",
+            args: ["/d", "/c", script],
+            env,
+            stdio: "pipe",
+          }),
+        inherited: () =>
+          spawn("cmd.exe", ["/d", "/c", script], {
+            env,
+            stdio: ["pipe", "pipe", "pipe"],
+          }),
+        hiddenRaw: () =>
+          spawn("cmd.exe", ["/d", "/c", script], {
+            env,
+            stdio: ["pipe", "pipe", "pipe"],
+            windowsHide: true,
+          }),
+      } as const;
+      const samples: Record<string, { exit: number; close: number }[]> = {};
+      const measure = (make: () => import("node:child_process").ChildProcess) =>
+        new Promise<{ exit: number; close: number }>((resolve) => {
+          const start = performance.now();
+          let exit = -1;
+          const child = make();
+          child.stdin?.on("error", () => {});
+          child.stdout?.resume();
+          child.stderr?.resume();
+          child.on("exit", () => (exit = performance.now() - start));
+          const timer = setTimeout(() => {
+            child.kill("SIGKILL");
+            resolve({ exit, close: 99_999 });
+          }, 20_000);
+          child.on("close", () => {
+            clearTimeout(timer);
+            resolve({ exit, close: performance.now() - start });
+          });
+          child.stdin?.end(LARGE_PAYLOAD);
+        });
+      try {
+        for (let i = 0; i < 40; i++) {
+          for (const [name, make] of Object.entries(modes)) {
+            (samples[name] ??= []).push(await measure(make));
           }
-        : {}
-      const result = await runPosixHook(script, extraEnv)
-      expect(result.exitCode, `${agent} exit code`).toBe(0)
-      expect(result.stdinErrors, `${agent} stdin errors`).toHaveLength(0)
-    }
-  })
-
-  it('does not need PATH to capture or drain POSIX hook stdin', async () => {
-    const scripts = await generatePosixScripts()
-    for (const [agent, script] of scripts) {
-      const result = await runPosixHook(script, { PATH: '' })
-      expect(result.exitCode, `${agent} exit code`).toBe(0)
-      expect(result.stdinErrors, `${agent} stdin errors`).toHaveLength(0)
-    }
-
-    const missing = await runPosixHook(wrapPosixHookCommand('/missing/orca-hook.sh'), { PATH: '' })
-    expect(missing.exitCode, 'missing script launcher exit code').toBe(0)
-    expect(missing.stdinErrors, 'missing script launcher stdin errors').toHaveLength(0)
-  })
-
-  // Exit zero does not prove stdin was consumed; measure captured bytes.
-  it.each([
-    ['empty PATH', ''],
-    // NixOS may lack /bin/cat; exercise the shell's default PATH.
-    ['PATH without coreutils', '/nonexistent'],
-    ['PATH whose first cat is a decoy', '']
-  ])('captures the whole payload with %s', async (label, pathValue) => {
-    const decoyDir = mkdtempSync(join(tmpdir(), 'orca-hook-stdin-decoy-'))
-    try {
-      let effectivePath = pathValue
-      if (label === 'PATH whose first cat is a decoy') {
-        const decoy = join(decoyDir, 'cat')
-        writeFileSync(decoy, '#!/bin/sh\nexit 0\n', { mode: 0o755 })
-        effectivePath = decoyDir
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
       }
-      const result = await runHookProcess(
-        '/bin/sh',
-        ['-c', `payload=$(${POSIX_HOOK_STDIN_READER}); printf '%s' "${'${#payload}'}"`],
-        { ...hookEnvironment(), PATH: effectivePath }
-      )
-      expect(result.exitCode, `${label} exit code`).toBe(0)
-      expect(result.stdinErrors, `${label} stdin errors`).toHaveLength(0)
-      expect(result.stdout, `${label} captured bytes`).toBe(String(LARGE_PAYLOAD.length))
-    } finally {
-      rmSync(decoyDir, { recursive: true, force: true })
-    }
-  })
-
-  it('drains before Claude skips hooks imported by Devin', async () => {
-    const script = (await generatePosixScripts()).get('claude claude-hook.sh')
-    expect(script).toBeDefined()
-    const result = await runPosixHook(script!, { DEVIN_PROJECT_DIR: '/tmp/devin-project' })
-    expect(result.exitCode).toBe(0)
-    expect(result.stdinErrors).toHaveLength(0)
-  })
-
-  it('drains a large payload when the configured script is missing', async () => {
-    const result = await runPosixHook(wrapPosixHookCommand('/missing/orca-hook.sh'))
-    expect(result.exitCode).toBe(0)
-    expect(result.stdinErrors).toHaveLength(0)
-  })
-})
+      for (const [name, list] of Object.entries(samples)) {
+        const closes = list.map((s) => s.close).sort((a, b) => a - b);
+        const gaps = list.map((s) => s.close - s.exit).sort((a, b) => a - b);
+        console.log(
+          `TEMP-LATENCY ${name}: close p50=${closes[20].toFixed(0)} p90=${closes[36].toFixed(0)} max=${closes.at(-1)!.toFixed(0)} ` +
+            `exit->close max=${gaps.at(-1)!.toFixed(0)} all=${closes.map((c) => c.toFixed(0)).join(",")}`,
+        );
+      }
+    }, 600_000);
+  },
+);
