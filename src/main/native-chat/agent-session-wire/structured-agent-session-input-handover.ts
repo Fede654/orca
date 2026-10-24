@@ -243,8 +243,8 @@ export function beginStructuredAgentSessionInputHandover(
       acquireAborts: deps.acquireAborts,
       deliveryOrder: deps.deliveryOrder,
       workChanged: () => deps.workChanged?.(sessionId),
-      holdClosedInput: (id, fence) =>
-        deps.holdClosedInput?.(sessionId, id, fence) ?? Promise.resolve(),
+      holdClosedInput: (id, fence, cause) =>
+        deps.holdClosedInput?.(sessionId, id, fence, cause) ?? Promise.resolve(),
       settleEndedInput: async (owner) => {
         if (session.lastEndedChild && sameProviderChild(session.lastEndedChild, binding)) {
           await deps.settleLeftovers?.(sessionId, owner)

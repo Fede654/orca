@@ -1,6 +1,7 @@
 // Count pending handovers and late-settlement writes as held until child/journal state catches up.
 // Nested late-settlement windows share the count without replacing the input that owns its result.
 
+import type { UnsentSendHold } from '../agent-session-journal/journal-unsent-send-hold'
 import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
 import type { UnopenedSendJournal } from './structured-agent-session-unopened-send-withdrawal'
 
@@ -12,7 +13,7 @@ type HandoverInput = {
   unadmitted: boolean
   signal?: AbortSignal
   pending?: () => boolean
-  finalization: { close: () => void; completion: Promise<void> }
+  finalization: { close: (cause: UnsentSendHold['cause']) => void; completion: Promise<void> }
 }
 type Handover = { count: number; input?: HandoverInput }
 const handingOver = new WeakMap<HandoverJournal, Map<string, Handover>>()
@@ -30,7 +31,8 @@ export function finalizingStructuredAgentSessionInput(
 
 /** Close cooperates with the existing result owner without joining it under host ordering. */
 export function closeStructuredAgentSessionHandovers(
-  journal: HandoverJournal
+  journal: HandoverJournal,
+  cause: UnsentSendHold['cause'] = 'chatClosed'
 ): Promise<void> | undefined {
   const finalizers = [...(handingOver.get(journal)?.values() ?? [])].flatMap(
     (entry) => entry.input?.finalization ?? []
@@ -39,7 +41,7 @@ export function closeStructuredAgentSessionHandovers(
     return undefined
   }
   for (const finalizer of finalizers) {
-    finalizer.close()
+    finalizer.close(cause)
   }
   return Promise.all(finalizers.map((input) => input.completion)).then(() => {})
 }
@@ -101,7 +103,7 @@ export function beginStructuredAgentSessionHandover(
   journal: HandoverJournal,
   clientMessageId: string,
   workChanged?: () => void,
-  finalization?: { close: () => void }
+  finalization?: { close: (cause: UnsentSendHold['cause']) => void }
 ): () => void {
   let sends = handingOver.get(journal)
   if (!sends) {

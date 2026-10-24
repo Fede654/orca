@@ -8,7 +8,10 @@ import {
 } from './structured-agent-session-handing-over'
 import { isQueuedAgentJournalSubmission } from '../../../shared/agent-session-queued-submission'
 import type { AgentJournalSubmission } from '../../../shared/agent-session-journal-types'
-import { holdUnsentSends } from '../agent-session-journal/journal-unsent-send-hold'
+import {
+  holdUnsentSends,
+  type UnsentSendHold
+} from '../agent-session-journal/journal-unsent-send-hold'
 import {
   snapshotBeforeStructuredAgentSessionStop,
   StructuredAgentSessionEvictionError
@@ -70,14 +73,15 @@ export async function holdClosedStructuredAgentSessionSends(
     mark: 'always' | 'settled'
     which?: (submission: AgentJournalSubmission) => boolean
     unrun?: (submission: AgentJournalSubmission) => boolean
-  }
+  },
+  cause: UnsentSendHold['cause'] = 'chatClosed'
 ): Promise<boolean> {
   const fence = structuredAgentSessionConversationFence(deps.store, sessionId)
   const { which } = close
   const settled = await holdUnsentSends(journal, {
     fence,
     ...(close.unrun ? { unrun: close.unrun } : {}),
-    hold: { cause: 'chatClosed', ...(which ? { which } : {}) }
+    hold: { cause, ...(which ? { which } : {}) }
   }).then(
     (newest) => ({ ok: true, newest }),
     (error: unknown) => {

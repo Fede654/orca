@@ -1,3 +1,4 @@
+import './structured-agent-session-codex-input-admission.spec'
 import {
   continuingStructuredAgentSessionInput,
   finalizingStructuredAgentSessionInput,
@@ -333,6 +334,7 @@ it.each(['config', 'order', 'initial'] as const)(
 it.each([
   ['ask', 1],
   ['auto', 1],
+  ['auto-before', 1],
   ['empty', 1],
   ['auto', 10],
   ['auto', 100]
@@ -382,11 +384,16 @@ it.each([
     const measured =
       population > 1 ? measureCodexInputWork(host, events, 'history', population) : undefined
     try {
+      if (mode === 'auto-before') {
+        await pick('auto')
+      }
       const id = await permissionSend('follow up')
       await vi.waitFor(() =>
         expect(codex.connections[0]?.calls.some((r) => r.method === 'turn/steer')).toBe(true)
       )
-      await pick(mode === 'empty' ? 'ask' : mode)
+      if (mode !== 'auto-before') {
+        await pick(mode === 'empty' ? 'ask' : mode)
+      }
       if (mode === 'empty') {
         await journal.resolveDispatch({
           clientMessageId: id,
@@ -421,7 +428,7 @@ it.each([
         new CodexAppServerRequestError('turn/steer', -32600, 'no active turn', 'no active turn')
       )
       await vi.waitFor(() => expect(starts()).toHaveLength(2))
-      expect(codex.connections).toHaveLength(mode === 'auto' ? 2 : 1)
+      expect(codex.connections).toHaveLength(mode.startsWith('auto') ? 2 : 1)
       expect(starts()[1]?.params).toMatchObject({ clientUserMessageId: id })
       expect(
         JSON.stringify(starts()[1]?.params?.input).includes('words that were not delivered')

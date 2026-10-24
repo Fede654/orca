@@ -1,5 +1,6 @@
 // Commit pending/settlement around an external provider call so concurrent sends remain acceptable.
 
+import type { UnsentSendHold } from '../agent-session-journal/journal-unsent-send-hold'
 import { AGENT_JOURNAL_THREAD_SCOPE } from '../../../shared/agent-session-journal-types'
 import { StructuredAgentSessionInputNotAdmitted } from './structured-agent-session-input-admission'
 import type { AgentSessionHandoverContext } from './structured-agent-session-host-types'
@@ -67,7 +68,7 @@ export async function beginSubmissionHandover(
   const turnScope = contextStructuredAgentSessionCurrentWork(ctx).turnScope()
   let carried = carriedStoppedHistory(ctx, turnScope, submission, body)
   let ownsChild = stillCurrent
-  let closing = false
+  let closing: UnsentSendHold['cause'] | undefined
   let unwritten = false
   const release = ctx.deliveryOrder?.activateSend(ctx.sessionId, clientMessageId)
   // Pending rows precede the adapter’s held-send evidence.
@@ -76,8 +77,8 @@ export async function beginSubmissionHandover(
     clientMessageId,
     ctx.workChanged,
     {
-      close: () => {
-        closing = true
+      close: (cause) => {
+        closing = cause
       }
     }
   )
@@ -182,13 +183,13 @@ export async function beginSubmissionHandover(
           attempt?.end()
         }
         // Provider proof must precede the host tail that may be closing its child.
-        if (!unwritten) {
+        if (!unwritten || !closing) {
           await resolveHandover(ctx, clientMessageId, outcome)
         }
         await commit(async () => {
-          if (unwritten) {
+          if (unwritten && closing) {
             await (closing && ctx.holdClosedInput
-              ? ctx.holdClosedInput(clientMessageId, ctx.fence)
+              ? ctx.holdClosedInput(clientMessageId, ctx.fence, closing)
               : resolveHandover(ctx, clientMessageId, outcome))
           }
           if (!outcome || outcome.state === 'admitted') {

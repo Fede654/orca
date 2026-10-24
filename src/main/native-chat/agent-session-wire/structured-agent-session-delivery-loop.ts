@@ -2,6 +2,7 @@
 // serialization for startup/readiness/provider calls so acceptance and Stop stay responsive.
 // Recover earlier-process queued sends before any handover; running commands block input.
 
+import type { UnsentSendHold } from '../agent-session-journal/journal-unsent-send-hold'
 import type { AgentChatPermissionMode } from '../../../shared/agent-chat-permission-mode'
 import { beginStructuredAgentSessionInputHandover } from './structured-agent-session-input-handover'
 import type { StructuredAgentSessionDeliveryOrder } from './structured-agent-session-delivery-order'
@@ -64,7 +65,12 @@ export type StructuredAgentSessionDeliveryLoopDeps = {
   currentWork: (sessionId: string) => StructuredAgentSessionCurrentWork | null
   /** Publish row-free changes in current work. */
   workChanged?: (sessionId: string) => void
-  holdClosedInput?: (sessionId: string, clientMessageId: string, fence: number) => Promise<void>
+  holdClosedInput?: (
+    sessionId: string,
+    clientMessageId: string,
+    fence: number,
+    cause: UnsentSendHold['cause']
+  ) => Promise<void>
   settleLeftovers?: (sessionId: string, owner: () => void) => Promise<void>
   readChildWork: (sessionId: string) => readonly AgentChildWorkView[] | undefined
   childWorkOpen: (sessionId: string) => boolean

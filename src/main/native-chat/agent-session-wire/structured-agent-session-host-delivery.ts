@@ -155,14 +155,17 @@ export function createStructuredAgentSessionConversationDelivery(input: {
       ),
     logger: deps.logger,
     record: (sessionId) => deps.store.getRecord(sessionId),
-    holdClosedInput: async (sessionId, id, fence) => {
+    holdClosedInput: async (sessionId, id, fence, cause) => {
       const session = sessions.get(sessionId)
       if (
         session &&
-        !(await holdClosedStructuredAgentSessionSends(deps, sessionId, session.journal, {
-          mark: 'settled',
-          unrun: (s) => s.clientMessageId === id && s.fence === fence
-        }))
+        !(await holdClosedStructuredAgentSessionSends(
+          deps,
+          sessionId,
+          session.journal,
+          { mark: 'settled', unrun: (s) => s.clientMessageId === id && s.fence === fence },
+          cause
+        ))
       ) {
         throw new Error('settling an unwritten closed input failed')
       }
