@@ -304,7 +304,9 @@ async function dispatchSafely(
 }
 
 /** Non-delivery proof applies only to queued handoffs; direct sends still owe stopped-history handling. */
-function cancelledDispatch(neverReachedAgent: boolean): AgentSessionDispatchOutcome {
+function cancelledDispatch(
+  neverReachedAgent: boolean
+): Extract<AgentSessionDispatchOutcome, { state: 'rejected' }> {
   return {
     state: 'rejected',
     ...agentSessionFailureWords(
