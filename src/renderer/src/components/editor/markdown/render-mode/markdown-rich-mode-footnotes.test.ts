@@ -31,6 +31,41 @@ describe('rich Markdown footnote eligibility', () => {
   })
 
   it.each([
+    '\ufeff[^id]: note\n\nUses [^id].',
+    '> [^id]: note\n\nUses [^id].',
+    '- [^id]: note\n\nUses [^id].',
+    '> 1. > [^id]: note\n\nUses [^id].',
+    '[^direct]: Safe.\n\n> [^nested]: Keep.\n\nUses [^direct] and [^nested].'
+  ])('keeps footnote definitions outside the rich parser in Source mode: %j', (content) => {
+    expect(getMarkdownRichModeUnsupportedMessage(content)).toBe(
+      'Editable only in code mode because this file contains footnotes.'
+    )
+  })
+
+  it.each(['[^id with spaces]: /x', '[^]: /x'])(
+    'keeps caret reference definitions in Source mode: %j',
+    (content) => {
+      expect(getMarkdownRichModeUnsupportedMessage(content)).toBe(
+        'Editable only in code mode because this file contains reference-style links.'
+      )
+    }
+  )
+
+  it.each(['    [^id]: note', '> ```md\n> [^id]: note\n> ```'])(
+    'keeps code examples eligible: %j',
+    (content) => {
+      expect(getMarkdownRichModeUnsupportedMessage(content)).toBeNull()
+    }
+  )
+
+  it('keeps a nested definition protected above the parser size bound', () => {
+    const content = `[^direct]: Safe.\n\n> [^nested]: Keep.\n\n${'x'.repeat(50_001)}`
+    expect(getMarkdownRichModeUnsupportedMessage(content)).toBe(
+      'Editable only in code mode because this file contains footnotes.'
+    )
+  })
+
+  it.each([
     '[source]: https://example.com\n\n[^fx-1]: Exchange rate.',
     '[^fx-1]: Exchange rate.\n\n[source]: https://example.com',
     '[exchange^rate]: https://example.com'

@@ -168,8 +168,10 @@ describe('editable Markdown footnotes', () => {
     }
   })
 
-  it('keeps unsupported labels protected rather than discarding definitions', () => {
-    expect(getMarkdownRichModeUnsupportedReason('Text[^a b].\n\n[^a b]: Note.')).toBe('footnotes')
+  it('keeps caret labels with spaces protected as reference definitions', () => {
+    expect(getMarkdownRichModeUnsupportedReason('Text[^a b].\n\n[^a b]: Note.')).toBe(
+      'reference-links'
+    )
   })
 
   it('shares definitions with list and quote lexers without leaking them into later parses', () => {
