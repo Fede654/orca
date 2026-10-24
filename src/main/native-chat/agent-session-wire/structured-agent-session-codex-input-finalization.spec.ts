@@ -442,173 +442,203 @@ export function registerCodexInputFinalization(current: typeof codexInputFinaliz
     }
   )
 
-  it.each(['retire', 'acquire', 'readiness', 'rebind', 'starting-exit'] as const)(
-    'ends previously positive continuation at actual %s',
-    async (boundary) => {
-      const { host, adapter, codex, permissionSend, pick, stop, starts } = current()
-      Object.defineProperty(process, 'platform', { configurable: true, value: 'win32' })
-      await pick('auto')
-      const { sessions, conversationDelivery, runtimeState } = host.collaboratorsForTests()
-      const journal = sessions.get(SESSION)!.journal
-      const original = sessions.get(SESSION)!.child!
-      const deps = conversationDelivery.loop['deps']
-      const held = Promise.withResolvers<void>()
-      const entered = Promise.withResolvers<void>()
-      const outcomes: Promise<unknown>[] = []
-      const readyWaits: Mock<StructuredAgentSessionStartReadiness['wait']>[] = []
-      const opened = vi.spyOn(adapter, 'open')
-      const start = deps.startProviderChild
-      vi.spyOn(deps, 'startProviderChild').mockImplementation((...args) => {
-        const claim = start(...args)
-        outcomes.push(claim.outcome)
-        return claim
-      })
-      const dispatch = adapter.dispatch.bind(adapter)
-      let signal: AbortSignal | undefined
-      vi.spyOn(adapter, 'dispatch').mockImplementation((input) => {
-        signal = input.signal
-        return dispatch(input)
-      })
-      const retire = deps.retireOutgrownChild
-      const retired = vi.spyOn(deps, 'retireOutgrownChild').mockImplementation(async (...args) => {
-        if (
-          boundary === 'retire' &&
-          args[1] &&
-          continuingStructuredAgentSessionInput(journal, args[1])
-        ) {
-          entered.resolve()
-          await held.promise
-        }
-        return retire(...args)
-      })
-      const open = codex.routes['thread/start']!
-      const opening = vi.fn(async (params: Parameters<typeof open>[0]) => {
-        if (boundary === 'acquire' || boundary === 'starting-exit') {
-          entered.resolve()
-          await held.promise
-        }
-        return open(params)
-      })
-      codex.routes['thread/start'] = codex.routes['thread/resume'] = opening
-      const readiness = deps.readiness
-      vi.spyOn(deps, 'readiness').mockImplementation((...args) => {
-        const ready = readiness(...args)
-        if (!ready) {
-          return ready
-        }
-        const wait = vi.fn(async (...budget: Parameters<typeof ready.wait>) => {
-          const result = await ready.wait(...budget)
-          if (boundary === 'readiness' && args[1] !== original) {
-            entered.resolve()
-            await held.promise
-          }
-          return result
-        })
-        readyWaits.push(wait)
-        return { wait }
-      })
-      const resolve = journal.resolveDispatch.bind(journal)
-      let reboundFence: number | undefined
-      const rebound = vi.spyOn(journal, 'resolveDispatch').mockImplementation(async (...args) => {
-        if (
-          boundary === 'rebind' &&
-          args[0].state === 'pending' &&
-          args[0].fence !== original.fence &&
-          args[0].fence === sessions.get(SESSION)?.child?.fence
-        ) {
-          reboundFence = args[0].fence
-          entered.resolve()
-          await held.promise
-        }
-        return resolve(...args)
-      })
-      async function drainForwarded() {
-        await Promise.allSettled(retired.mock.results.map((result) => result.value))
-        await Promise.allSettled(outcomes)
-        const results = [
-          ...opening.mock.results,
-          ...opened.mock.results,
-          ...rebound.mock.results,
-          ...readyWaits.flatMap((call) => call.mock.results)
-        ]
-        await Promise.allSettled(
-          results.map((result) => (result.type === 'return' ? result.value : undefined))
-        )
+  it.each([
+    'retire',
+    'acquire',
+    'readiness',
+    'rebind',
+    'starting-exit',
+    'close-acquire',
+    'close-readiness'
+  ] as const)('ends previously positive continuation at actual %s', async (stage) => {
+    const closing = stage.startsWith('close-')
+    const boundary = stage.replace('close-', '')
+    const { host, adapter, codex, permissionSend, pick, stop, starts } = current()
+    Object.defineProperty(process, 'platform', { configurable: true, value: 'win32' })
+    await pick('auto')
+    const { sessions, conversationDelivery, runtimeState } = host.collaboratorsForTests()
+    const journal = sessions.get(SESSION)!.journal
+    const original = sessions.get(SESSION)!.child!
+    const deps = conversationDelivery.loop['deps']
+    const held = Promise.withResolvers<void>()
+    const entered = Promise.withResolvers<void>()
+    const outcomes: Promise<unknown>[] = []
+    const readyWaits: Mock<StructuredAgentSessionStartReadiness['wait']>[] = []
+    const opened = vi.spyOn(adapter, 'open')
+    const start = deps.startProviderChild
+    vi.spyOn(deps, 'startProviderChild').mockImplementation((...args) => {
+      const claim = start(...args)
+      outcomes.push(claim.outcome)
+      return claim
+    })
+    const dispatch = adapter.dispatch.bind(adapter)
+    let signal: AbortSignal | undefined
+    vi.spyOn(adapter, 'dispatch').mockImplementation((input) => {
+      signal = input.signal
+      return dispatch(input)
+    })
+    const retire = deps.retireOutgrownChild
+    const retired = vi.spyOn(deps, 'retireOutgrownChild').mockImplementation(async (...args) => {
+      if (
+        boundary === 'retire' &&
+        args[1] &&
+        continuingStructuredAgentSessionInput(journal, args[1])
+      ) {
+        entered.resolve()
+        await held.promise
       }
-      const id = await permissionSend('same original input', { personality: 'friendly' })
-      const waiting = host.waitForSendSettlement(SESSION, id)
-      const originalBody = hostTestMessage('same original input')
-      // Ready-child exit proof settles before lease release; terminal rows keep that fence.
-      const settlesAtChildFence = boundary === 'readiness' || boundary === 'rebind'
-      let boundFence = journal.submission(id)!.fence
-      let stopping: Promise<unknown> = Promise.resolve()
-      try {
-        await entered.promise
-        expect(continuingStructuredAgentSessionInput(journal, id)).toBe(true)
-        expect(signal?.aborted).toBe(false)
-        const child = sessions.get(SESSION)?.child
-        expect(journal.submission(id)).toMatchObject({
-          clientMessageId: id,
-          options: { personality: 'friendly' }
-        })
-        expect(journal.itemBody(agentJournalSubmissionKey(id))).toEqual(originalBody)
-        boundFence = child?.fence ?? journal.submission(id)!.fence
-        if (boundary === 'rebind') {
-          expect(reboundFence).toBe(child!.fence)
-        }
-        if (child) {
-          expect(child).toMatchObject({
-            fence: current().conversationFence(),
-            generation: boundary === 'retire' ? 'generation-1' : 'generation-2'
-          })
-        }
-        expect(boundFence).toBe(boundary === 'retire' ? original.fence : original.fence + 2)
-        if (boundary === 'starting-exit') {
-          const abort = runtimeState.acquireAborts.abort.bind(runtimeState.acquireAborts)
-          let observed = false
-          const first = vi
-            .spyOn(runtimeState.acquireAborts, 'abort')
-            .mockImplementation((...args) => {
-              if (!observed) {
-                observed = true
-                expect(sessions.get(SESSION)?.child?.phase).toBe('starting')
-                expect(signal?.aborted).toBe(false)
-              }
-              return abort(...args)
-            })
-          codex.connections[1]!.handlers.onExit?.(new Error('startup exit'), { expected: false })
-          await vi.waitFor(() => expect(first).toHaveBeenCalled())
-        } else {
-          stopping = stop()
-        }
-        expect(signal?.aborted).toBe(true)
-        expect(continuingStructuredAgentSessionInput(journal, id)).toBe(false)
-        held.resolve()
-        await stopping
-        await drainForwarded()
-        await current().waitForInputFinalization(journal, id)
-        expect(journal.submission(id)).toMatchObject({
-          clientMessageId: id,
-          dispatchState: 'rejected',
-          fence: settlesAtChildFence ? boundFence : current().conversationFence(),
-          rejection: { kind: boundary === 'starting-exit' ? 'providerStartFailed' : 'cancelled' },
-          options: { personality: 'friendly' }
-        })
-        expect(current().submission((await waiting)?.value)).toEqual(journal.submission(id))
-        expect(journal.itemBody(agentJournalSubmissionKey(id))).toEqual(originalBody)
-        expect(journal.submission(id)?.reason).toMatch(
-          boundary === 'starting-exit' ? /before/ : /provider_cancelled_before_start/
-        )
-        expect(journal.submission(id)?.rejection).not.toHaveProperty('neverReachedAgent')
-        expect(starts()).toHaveLength(0)
-        expect(codex.connections).toHaveLength(boundary === 'retire' ? 1 : 2)
-      } finally {
-        held.resolve()
-        await stopping
-        await drainForwarded()
-        await current().waitForInputFinalization(journal, id)
-        vi.restoreAllMocks()
+      return retire(...args)
+    })
+    const open = codex.routes['thread/start']!
+    const opening = vi.fn(async (params: Parameters<typeof open>[0]) => {
+      if (boundary === 'acquire' || boundary === 'starting-exit') {
+        entered.resolve()
+        await held.promise
       }
+      return open(params)
+    })
+    codex.routes['thread/start'] = codex.routes['thread/resume'] = opening
+    const readiness = deps.readiness
+    vi.spyOn(deps, 'readiness').mockImplementation((...args) => {
+      const ready = readiness(...args)
+      if (!ready) {
+        return ready
+      }
+      const wait = vi.fn(async (...budget: Parameters<typeof ready.wait>) => {
+        const result = await ready.wait(...budget)
+        if (boundary === 'readiness' && args[1] !== original) {
+          entered.resolve()
+          await held.promise
+        }
+        return result
+      })
+      readyWaits.push(wait)
+      return { wait }
+    })
+    const resolve = journal.resolveDispatch.bind(journal)
+    let reboundFence: number | undefined
+    const rebound = vi.spyOn(journal, 'resolveDispatch').mockImplementation(async (...args) => {
+      if (
+        boundary === 'rebind' &&
+        args[0].state === 'pending' &&
+        args[0].fence !== original.fence &&
+        args[0].fence === sessions.get(SESSION)?.child?.fence
+      ) {
+        reboundFence = args[0].fence
+        entered.resolve()
+        await held.promise
+      }
+      return resolve(...args)
+    })
+    async function drainForwarded() {
+      await Promise.allSettled(retired.mock.results.map((result) => result.value))
+      await Promise.allSettled(outcomes)
+      const results = [
+        ...opening.mock.results,
+        ...opened.mock.results,
+        ...rebound.mock.results,
+        ...readyWaits.flatMap((call) => call.mock.results)
+      ]
+      await Promise.allSettled(
+        results.map((result) => (result.type === 'return' ? result.value : undefined))
+      )
     }
-  )
+    const id = await permissionSend('same original input', { personality: 'friendly' })
+    const waiting = host.waitForSendSettlement(SESSION, id)
+    const originalBody = hostTestMessage('same original input')
+    // Ready-child exit proof settles before lease release; terminal rows keep that fence.
+    const settlesAtChildFence = boundary === 'readiness' || boundary === 'rebind'
+    let boundFence = journal.submission(id)!.fence
+    let stopping: Promise<unknown> = Promise.resolve()
+    try {
+      await entered.promise
+      expect(continuingStructuredAgentSessionInput(journal, id)).toBe(true)
+      expect(signal?.aborted).toBe(false)
+      const child = sessions.get(SESSION)?.child
+      expect(journal.submission(id)).toMatchObject({
+        clientMessageId: id,
+        options: { personality: 'friendly' }
+      })
+      expect(journal.itemBody(agentJournalSubmissionKey(id))).toEqual(originalBody)
+      boundFence = child?.fence ?? journal.submission(id)!.fence
+      if (boundary === 'rebind') {
+        expect(reboundFence).toBe(child!.fence)
+      }
+      if (child) {
+        expect(child).toMatchObject({
+          fence: current().conversationFence(),
+          generation: boundary === 'retire' ? 'generation-1' : 'generation-2'
+        })
+      }
+      expect(boundFence).toBe(boundary === 'retire' ? original.fence : original.fence + 2)
+      if (boundary === 'starting-exit') {
+        const abort = runtimeState.acquireAborts.abort.bind(runtimeState.acquireAborts)
+        let observed = false
+        const first = vi
+          .spyOn(runtimeState.acquireAborts, 'abort')
+          .mockImplementation((...args) => {
+            if (!observed) {
+              observed = true
+              expect(sessions.get(SESSION)?.child?.phase).toBe('starting')
+              expect(signal?.aborted).toBe(false)
+            }
+            return abort(...args)
+          })
+        codex.connections[1]!.handlers.onExit?.(new Error('startup exit'), { expected: false })
+        await vi.waitFor(() => expect(first).toHaveBeenCalled())
+      } else {
+        stopping = closing ? host.close(SESSION, 'user-close') : stop()
+      }
+      expect(signal?.aborted).toBe(true)
+      expect(continuingStructuredAgentSessionInput(journal, id)).toBe(false)
+      const rowFence = journal.submission(id)!.fence
+      held.resolve()
+      await stopping
+      await drainForwarded()
+      await current().waitForInputFinalization(journal, id)
+      await journal['queue'].drain()
+      if (closing) {
+        const row = journal.submission(id)
+        const cards = journal.queuedMessages.list()
+        expect(rowFence).toBe(original.fence)
+        expect(boundFence).toBe(original.fence + 2)
+        expect(starts()).toHaveLength(0)
+        expect(finalizingStructuredAgentSessionInput(journal, id)).toBe(false)
+        expect(cards.map((card) => card.messageId)).toEqual([id])
+        expect(current().submission((await waiting)?.value)).toEqual(row)
+        expect(cards[0]).toMatchObject({
+          body: originalBody,
+          options: { personality: 'friendly' },
+          position: 0
+        })
+        expect(row).toMatchObject({
+          keptAsQueuedMessageId: id,
+          source: { kind: 'user' },
+          rejection: { kind: 'chatClosed' }
+        })
+        return
+      }
+      expect(journal.submission(id)).toMatchObject({
+        clientMessageId: id,
+        dispatchState: 'rejected',
+        fence: settlesAtChildFence ? boundFence : current().conversationFence(),
+        rejection: { kind: boundary === 'starting-exit' ? 'providerStartFailed' : 'cancelled' },
+        options: { personality: 'friendly' }
+      })
+      expect(current().submission((await waiting)?.value)).toEqual(journal.submission(id))
+      expect(journal.itemBody(agentJournalSubmissionKey(id))).toEqual(originalBody)
+      expect(journal.submission(id)?.reason).toMatch(
+        boundary === 'starting-exit' ? /before/ : /provider_cancelled_before_start/
+      )
+      expect(journal.submission(id)?.rejection).not.toHaveProperty('neverReachedAgent')
+      expect(starts()).toHaveLength(0)
+      expect(codex.connections).toHaveLength(boundary === 'retire' ? 1 : 2)
+    } finally {
+      held.resolve()
+      await stopping
+      await drainForwarded()
+      await current().waitForInputFinalization(journal, id)
+      vi.restoreAllMocks()
+    }
+  })
 }

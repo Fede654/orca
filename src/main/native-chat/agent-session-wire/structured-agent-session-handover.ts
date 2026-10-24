@@ -288,7 +288,7 @@ async function dispatchSafely(
     }
     // This signal affects preparation only; its original reason proves no provider write.
     if (isAbortSignalReason(signal, error)) {
-      return cancelledDispatch(queued)
+      throw new StructuredAgentSessionInputNotAdmitted(cancelledDispatch(queued))
     }
     if (isAgentSessionOptionRejectedError(error)) {
       return {
