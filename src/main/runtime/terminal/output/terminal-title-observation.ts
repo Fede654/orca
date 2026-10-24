@@ -207,7 +207,7 @@ export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWit
     if (pty && parkedIdleEdge && this.getLeavesForPty(ptyId).length === 0) {
       const parked = this.getParkedOrchestrationLeafForPty(pty)
       const handle = this.handleByPtyId.get(ptyId)
-      if (parked && handle && this.checkDeliverySettledAndArmRecheck(parked)) {
+      if (parked && handle) {
         this.deliverPendingMessagesForHandle(handle)
       }
     }

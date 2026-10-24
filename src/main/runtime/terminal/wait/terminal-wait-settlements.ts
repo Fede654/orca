@@ -187,7 +187,7 @@ export abstract class OrcaRuntimeWithResolveExitWaiters extends OrcaRuntimeWithB
         const pty = this.getParkedOrchestrationPtyForLeafKey(leafKey)
         const parked = this.getParkedOrchestrationLeafForPty(pty)
         const handle = pty ? this.handleByPtyId.get(pty.ptyId) : undefined
-        if (handle && parked && this.checkDeliverySettledAndArmRecheck(parked)) {
+        if (handle && parked) {
           this.deliverPendingMessagesForHandle(handle)
         }
         return

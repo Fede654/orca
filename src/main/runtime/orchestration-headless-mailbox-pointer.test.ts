@@ -13,6 +13,157 @@ import {
 } from './orchestration-mailbox-notification-test-harness'
 
 describe('headless orchestration mailbox pointer', () => {
+  it('stops a parked weak-idle recheck when the pane becomes busy without mail', async () => {
+    vi.useFakeTimers()
+    try {
+      const db = new OrchestrationDb(':memory:')
+      const { runtime, write } = createRuntime(db)
+      runtime.syncWindowGraph(1, { tabs: [], leaves: [] })
+      await runtime.listTerminals()
+
+      runtime.onPtyData(PTY_ID, '\x1b]0;⠋ Codex\x07working\n', Date.now())
+      runtime.onPtyData(PTY_ID, '\x1b]0;Codex\x07still working\n', Date.now())
+      await runtime.serializeMainTerminalBuffer(PTY_ID)
+      expect(runtime['ptysById'].get(PTY_ID)?.lastAgentStatus).toBe('idle')
+      expect(runtime['isAgentSettledForDelivery']({ tabId: TAB_ID, leafId: LEAF_ID })).toBe(false)
+      expect(runtime['deliveryRecheckTimersByLeafKey'].size).toBe(0)
+
+      runtime.onPtyData(PTY_ID, '\x1b]0;Codex working\x07', Date.now())
+      await runtime.serializeMainTerminalBuffer(PTY_ID)
+      await vi.advanceTimersByTimeAsync(3_500)
+
+      expect(runtime['deliveryRecheckTimersByLeafKey'].size).toBe(0)
+      expect(pointerCount(write)).toBe(0)
+      db.close()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('rechecks queued parked mail after quiet', async () => {
+    vi.useFakeTimers()
+    try {
+      const db = new OrchestrationDb(':memory:')
+      const { runtime, write } = createRuntime(db)
+      runtime.syncWindowGraph(1, { tabs: [], leaves: [] })
+      const [terminal] = (await runtime.listTerminals()).terminals
+      const run = db.createRun({
+        objective: 'Quiet parked Run',
+        coordinatorHandle: terminal.handle,
+        coordinatorPaneKey: PANE_KEY
+      })
+      const message = db.insertMessage({
+        from: 'term_worker',
+        to: `run:${run.id}`,
+        subject: 'Quiet-time delivery',
+        type: 'worker_done',
+        runId: run.id
+      })
+
+      runtime.onPtyData(PTY_ID, '\x1b]0;⠋ Codex\x07working\n', Date.now())
+      runtime.onPtyData(PTY_ID, '\x1b]0;Codex\x07still working\n', Date.now())
+      await runtime.serializeMainTerminalBuffer(PTY_ID)
+      expect(runtime['deliveryRecheckTimersByLeafKey'].size).toBe(1)
+      expect(pointerCount(write)).toBe(0)
+
+      await vi.advanceTimersByTimeAsync(3_050)
+      expect(pointerCount(write)).toBe(1)
+      await vi.advanceTimersByTimeAsync(500)
+      expect(db.getMessageById(message.id)?.delivered_at).toEqual(expect.any(String))
+      db.close()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it.each([
+    ['working', 'Codex working'],
+    ['permission', 'Codex waiting for permission']
+  ] as const)(
+    'holds queued parked mail when weak idle becomes %s before the retry',
+    async (_status, title) => {
+      vi.useFakeTimers()
+      try {
+        const db = new OrchestrationDb(':memory:')
+        const { runtime, write } = createRuntime(db)
+        runtime.syncWindowGraph(1, { tabs: [], leaves: [] })
+        const [terminal] = (await runtime.listTerminals()).terminals
+        const run = db.createRun({
+          objective: 'Busy parked Run',
+          coordinatorHandle: terminal.handle,
+          coordinatorPaneKey: PANE_KEY
+        })
+        const message = db.insertMessage({
+          from: 'term_worker',
+          to: `run:${run.id}`,
+          subject: 'Wait for idle',
+          type: 'worker_done',
+          runId: run.id
+        })
+
+        runtime.onPtyData(PTY_ID, '\x1b]0;⠋ Codex\x07working\n', Date.now())
+        runtime.onPtyData(PTY_ID, '\x1b]0;Codex\x07still working\n', Date.now())
+        await runtime.serializeMainTerminalBuffer(PTY_ID)
+        expect(runtime['deliveryRecheckTimersByLeafKey'].size).toBe(1)
+
+        runtime.onPtyData(PTY_ID, `\x1b]0;${title}\x07`, Date.now())
+        await runtime.serializeMainTerminalBuffer(PTY_ID)
+        await vi.advanceTimersByTimeAsync(3_500)
+        expect(runtime['deliveryRecheckTimersByLeafKey'].size).toBe(0)
+        expect(pointerCount(write)).toBe(0)
+        expect(db.getMessageById(message.id)?.delivered_at).toBeNull()
+
+        runtime.onPtyData(PTY_ID, '\x1b]0;Codex done\x07', Date.now())
+        await runtime.serializeMainTerminalBuffer(PTY_ID)
+        expect(pointerCount(write)).toBe(1)
+        db.close()
+      } finally {
+        vi.useRealTimers()
+      }
+    }
+  )
+
+  it('does not use an old parked retry after the PTY incarnation is replaced', async () => {
+    vi.useFakeTimers()
+    try {
+      const db = new OrchestrationDb(':memory:')
+      const { runtime, write } = createRuntime(db)
+      runtime.syncWindowGraph(1, { tabs: [], leaves: [] })
+      const [terminal] = (await runtime.listTerminals()).terminals
+      const run = db.createRun({
+        objective: 'Replaced parked Run',
+        coordinatorHandle: terminal.handle,
+        coordinatorPaneKey: PANE_KEY
+      })
+      const message = db.insertMessage({
+        from: 'term_worker',
+        to: `run:${run.id}`,
+        subject: 'Retain after replacement',
+        type: 'worker_done',
+        runId: run.id
+      })
+
+      runtime.onPtyData(PTY_ID, '\x1b]0;⠋ Codex\x07working\n', Date.now())
+      runtime.onPtyData(PTY_ID, '\x1b]0;Codex\x07still working\n', Date.now())
+      await runtime.serializeMainTerminalBuffer(PTY_ID)
+      expect(runtime['deliveryRecheckTimersByLeafKey'].size).toBe(1)
+
+      runtime.registerPty(PTY_ID, WORKTREE_ID, null, {
+        tabId: TAB_ID,
+        leafId: LEAF_ID,
+        incarnationId: 'replacement-incarnation'
+      })
+      await vi.advanceTimersByTimeAsync(3_500)
+
+      expect(pointerCount(write)).toBe(0)
+      expect(db.getMessageById(message.id)?.delivered_at).toBeNull()
+      expect(runtime['deliveryRecheckTimersByLeafKey'].size).toBe(0)
+      db.close()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('delivers a Run message that arrives after the coordinator is idle', async () => {
     vi.useFakeTimers()
     try {
