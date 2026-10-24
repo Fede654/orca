@@ -216,7 +216,7 @@ it.each(CODEX_INPUT_FINALIZATION_ADMISSION_CASES)(
       if (boundary.includes('-then-')) {
         expect(answered?.fence).toBe(rejectedAtFence)
         expect(fixture.conversationFence()).toBe(child.fence + 1)
-        expect(cards.filter((card) => card.messageId === id)).toHaveLength(1)
+        expect(cards.map((card) => card.messageId)).toEqual([id])
         expect(child.close).toMatchObject({ cause: 'user-close' })
         expect(child.close).not.toHaveProperty('quit')
         expect(codex.connections[0]?.closed).toBe(true)
