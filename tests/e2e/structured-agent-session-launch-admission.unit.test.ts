@@ -52,7 +52,7 @@ vi.mock('@/runtime/runtime-layout-client', async (importOriginal) =>
 
 import { useAppStore } from '@/store'
 import { adoptAgentSessionLaunchVerdict } from '../../src/renderer/src/lib/agent-session-launch-plan'
-import { beginStructuredAgentSessionProvisionalLaunch } from '../../src/renderer/src/lib/structured-agent-session-provisional-tab'
+import { beginStructuredAgentSessionProvisionalLaunch } from '../../src/renderer/src/lib/agent-session/structured-agent-session-provisional-tab'
 import { beginDirectWorkItemStructuredLaunch } from '../../src/renderer/src/lib/launch-work-item-direct-agent-routing'
 import { getStructuredAgentLaunchStatus } from '../../src/renderer/src/lib/structured-agent-session-launch-status'
 import { getStructuredAgentSessionLaunchSelection } from '../../src/renderer/src/lib/structured-agent-session-launch-options'
