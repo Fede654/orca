@@ -1,3 +1,7 @@
+import {
+  AgentLaunchChoiceCancelled,
+  acquireAgentLaunchChoices
+} from '@/lib/host-chat-program-acquisition'
 import { ensureAgentLaunchPreferences } from '@/components/settings/use-host-agent-launch-preferences'
 import {
   buildAgentLaunchRouteInput,
@@ -50,6 +54,23 @@ export function useSavedSourceControlActionStart() {
       const store = useAppStore.getState()
       const { recipe, worktreeId } = args
       const agent = recipe.agentId
+      if (!isTuiAgent(agent) || !worktreeId) {
+        onFallback()
+        return
+      }
+      const projection = projectSourceControlActionLaunch(recipe, agent, {
+        basePrompt: args.basePrompt
+      })
+      const workspace = { worktreeId, kind: workspaceKindForWorktreeId(worktreeId) }
+      const [choices, agentLaunchPreferences] = await Promise.all([
+        acquireAgentLaunchChoices(
+          workspace,
+          () => ensureDetectedAgentsForWorktree(store, worktreeId),
+          signal
+        ),
+        ensureAgentLaunchPreferences(store, workspace, signal)
+      ])
+      signal?.throwIfAborted()
       const route = isTuiAgent(agent)
         ? buildAgentLaunchRouteInput(store, {
             agent,
@@ -66,22 +87,7 @@ export function useSavedSourceControlActionStart() {
           worktreeId,
           repoId: args.repoId
         })
-      if (!isTuiAgent(agent) || !worktreeId) {
-        onFallback()
-        return
-      }
-      const projection = projectSourceControlActionLaunch(recipe, agent, {
-        basePrompt: args.basePrompt
-      })
-      const [detectedAgents, agentLaunchPreferences] = await Promise.all([
-        ensureDetectedAgentsForWorktree(store, worktreeId),
-        ensureAgentLaunchPreferences(
-          store,
-          { worktreeId, kind: workspaceKindForWorktreeId(worktreeId) },
-          signal
-        )
-      ])
-      signal?.throwIfAborted()
+      const detectedAgents = appliesArgs ? [...(choices.detected ?? [])] : choices.offered
       const plan = buildSourceControlAgentDeliveryPlan({
         settings: args.settings,
         agentLaunchPreferences,
@@ -115,7 +121,11 @@ export function useSavedSourceControlActionStart() {
         onFallback()
       }
     } catch (error) {
-      if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+      if (
+        signal?.aborted ||
+        error instanceof AgentLaunchChoiceCancelled ||
+        (error instanceof DOMException && error.name === 'AbortError')
+      ) {
         return
       }
       console.error('Saved Source Control action failed', error)

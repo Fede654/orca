@@ -1,3 +1,4 @@
+import { setLocalRuntimeCapabilitiesForTests } from '@/runtime/local-runtime-capabilities'
 import { projectAgentLaunchSettings } from '../../../../../shared/agent-launch-settings'
 import { clearHostAgentMenuSettingsForTests } from '@/components/settings/use-host-agent-launch-preferences'
 import { useChecksPanelCommentResolution } from './use-checks-panel-comment-resolution'
@@ -31,6 +32,7 @@ const original = useAppStore.getState()
 afterEach(() => {
   cleanup()
   clearHostAgentMenuSettingsForTests()
+  setLocalRuntimeCapabilitiesForTests(null)
   useAppStore.setState(original, true)
   clearPendingPRCommentAiAck()
   vi.clearAllMocks()
@@ -43,6 +45,7 @@ function deferred<T>() {
   return { promise, resolve }
 }
 function fixture(saved = true, paired = false) {
+  setLocalRuntimeCapabilitiesForTests([])
   Object.defineProperty(window, 'api', {
     configurable: true,
     value: { gh: { onWorkItemMutated: () => () => {} } }
@@ -60,12 +63,23 @@ function fixture(saved = true, paired = false) {
     Object.assign(worktree, { hostId: 'runtime:alpha' })
   }
   const inventory = deferred<('codex' | 'claude')[]>()
+  const detect = () =>
+    inventory.promise.then((ids) => {
+      useAppStore.setState(
+        paired
+          ? {
+              runtimeDetectedAgentIds: { [getRuntimeAgentInventoryKey('alpha', worktree.id)]: ids }
+            }
+          : { localDetectedAgentIdsByContext: { host: ids } }
+      )
+      return ids
+    })
   useAppStore.setState({
     settings,
     repos: [repo],
     worktreesByRepo: { [repo.id]: [worktree] },
     detectedAgentIds: null,
-    ensureDetectedAgents: () => inventory.promise
+    ensureDetectedAgents: detect
   })
   if (paired) {
     settings.disabledTuiAgents = ['codex']
@@ -77,8 +91,25 @@ function fixture(saved = true, paired = false) {
     })
     useAppStore.setState({
       runtimeDetectedAgentIds: { [getRuntimeAgentInventoryKey('alpha', worktree.id)]: ['codex'] },
-      ensureRuntimeDetectedAgents: () => inventory.promise,
-      refreshRuntimeDetectedAgents: () => inventory.promise
+      runtimeStatusByEnvironmentId: new Map([
+        [
+          'alpha',
+          {
+            status: {
+              runtimeId: 'r1',
+              capabilities: [],
+              rendererGraphEpoch: 0,
+              graphStatus: 'ready',
+              authoritativeWindowId: null,
+              liveTabCount: 0,
+              liveLeafCount: 0
+            },
+            checkedAt: 1
+          }
+        ]
+      ]),
+      ensureRuntimeDetectedAgents: detect,
+      refreshRuntimeDetectedAgents: detect
     })
   }
   const pending: RefObject<PendingPRCommentAiAck | null> = { current: null }

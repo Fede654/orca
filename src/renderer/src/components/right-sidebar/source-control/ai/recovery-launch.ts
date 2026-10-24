@@ -1,8 +1,12 @@
 import { ensureAgentLaunchPreferences } from '@/components/settings/use-host-agent-launch-preferences'
-import { workspaceKindForWorktreeId } from '@/lib/agent-launch-route-input'
-import { useAppStore } from '@/store'
+import {
+  AgentLaunchChoiceCancelled,
+  acquireAgentLaunchChoices
+} from '@/lib/host-chat-program-acquisition'
 import { toast } from 'sonner'
 import type { AppState } from '@/store'
+import { useAppStore } from '@/store'
+import type { TuiAgent } from '../../../../../../shared/tui-agent'
 import { focusTerminalTabSurface } from '@/lib/focus-terminal-tab-surface'
 import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import { newAgentLaunchRequestId } from '@/lib/agent-launch-request-id'
@@ -23,6 +27,8 @@ import type {
 } from '../../../../../../shared/source-control-ai-actions'
 import { buildSourceControlRecoveryAgentCommandInput } from '../../../../../../shared/source-control-recovery-agent-command'
 import { translate } from '@/i18n/i18n'
+import { agentChoiceMayOpenAsChat } from '@/lib/host-chat-program'
+import { worktreeLaunchWorkspace } from '@/lib/agent-launch-route-input'
 
 type SourceControlAiLaunchStoreSnapshot = Pick<AppState, 'settings'> & WorktreeAgentInventoryState
 
@@ -110,7 +116,26 @@ export async function launchSourceControlRecoveryAgentWithDefault({
     return false
   }
 
-  const store = getStoreState()
+  const workspace = worktreeLaunchWorkspace(activeWorktreeId)
+  const inventory = await Promise.all([
+    acquireAgentLaunchChoices(workspace, () =>
+      ensureDetectedAgentsForWorktree(getStoreState(), activeWorktreeId)
+    ),
+    ensureAgentLaunchPreferences(useAppStore.getState(), workspace)
+  ]).catch((error) => {
+    if (
+      error instanceof AgentLaunchChoiceCancelled ||
+      (error instanceof DOMException && error.name === 'AbortError')
+    ) {
+      return null
+    }
+    throw error
+  })
+  if (!inventory) {
+    return false
+  }
+  const [choices, preferences] = inventory
+  const detectedAgents = [...(choices.detected ?? [])]
   const savedRecipe = getLaunchActionRecipe(actionId)
   if (!basePrompt) {
     toast.error(copy.promptUnavailable)
@@ -127,26 +152,13 @@ export async function launchSourceControlRecoveryAgentWithDefault({
     return false
   }
 
-  const inventory = await Promise.all([
-    ensureDetectedAgentsForWorktree(store, activeWorktreeId),
-    ensureAgentLaunchPreferences(useAppStore.getState(), {
-      worktreeId: activeWorktreeId,
-      kind: workspaceKindForWorktreeId(activeWorktreeId)
-    })
-  ]).catch((error) => {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return null
-    }
-    throw error
-  })
-  if (!inventory) {
-    return false
-  }
-  const [detectedAgents, preferences] = inventory
+  // A saved or default agent may open as a chat without its CLI.
+  const opensAsChat = (agent: TuiAgent): boolean =>
+    agentChoiceMayOpenAsChat(useAppStore.getState(), agent, workspace, choices.detected)
   const savedAgent = readSourceControlLaunchRecipeAgentId(savedRecipe)
   if (
     savedAgent &&
-    (!detectedAgents.includes(savedAgent) ||
+    ((!detectedAgents.includes(savedAgent) && !opensAsChat(savedAgent)) ||
       !isTuiAgentEnabled(savedAgent, preferences.disabledTuiAgents))
   ) {
     toast.error(copy.savedAgentUnavailable)
@@ -156,7 +168,8 @@ export async function launchSourceControlRecoveryAgentWithDefault({
     savedAgent,
     defaultAgent: preferences.defaultTuiAgent,
     detectedAgents,
-    disabledAgents: preferences.disabledTuiAgents
+    disabledAgents: preferences.disabledTuiAgents,
+    chosenOpensAsChat: opensAsChat
   })
   if (!agent) {
     toast.error(copy.noEnabledAgent)

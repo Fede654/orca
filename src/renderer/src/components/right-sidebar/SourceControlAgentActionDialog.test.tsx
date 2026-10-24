@@ -140,7 +140,7 @@ function resetStore(settings: GlobalSettings, repos: Repo[] = []): void {
 // The dialog reads the store's inventory, so the probes write it the way the real actions do.
 function detects(ids: TuiAgent[]): void {
   mocks.ensureDetectedAgents.mockImplementation(async () => {
-    useAppStore.setState({ detectedAgentIds: ids })
+    useAppStore.setState({ detectedAgentIds: ids, localDetectedAgentIdsByContext: { host: ids } })
     return ids
   })
   mocks.ensureRemoteDetectedAgents.mockImplementation(async (connectionId: string) => {

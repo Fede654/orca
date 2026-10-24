@@ -1,3 +1,14 @@
+import type { AppState } from '@/store/types'
+import type { AgentLaunchPreferences } from '@/components/settings/use-host-agent-launch-preferences'
+import type { ProspectiveWorkspace } from '@/lib/agent-launch-route-input'
+import { readAgentLaunchChoice } from '@/lib/host-chat-program'
+import { resolveSourceControlActionRecipe } from '../../../shared/source-control-ai'
+import type { SourceControlActionId } from '../../../shared/source-control-ai-actions'
+import {
+  pickSourceControlLaunchAgent,
+  readSourceControlLaunchRecipeAgentId
+} from '../../../shared/source-control-launch-agent-selection'
+import { isTuiAgentEnabled } from '../../../shared/tui-agent-selection'
 import type { Repo } from '../../../shared/repo-types'
 import { getRepoExecutionHostId, parseExecutionHostId } from '../../../shared/execution-host'
 import { isFolderRepo } from '../../../shared/repo-kind'
@@ -73,4 +84,34 @@ export function sourceControlAgentPickerSelection(
         model.detection.detectionFailed ||
         model.detection.needsServerUpdate)
   }
+}
+
+/** Button gates and execution use the same recipe and preserve strict saved Checks choices. */
+export function resolveChecksActionAgent(
+  state: AppState,
+  actionId: SourceControlActionId,
+  repoId: string | undefined,
+  workspace: ProspectiveWorkspace,
+  detected: readonly TuiAgent[] | null,
+  preferences?: AgentLaunchPreferences
+): TuiAgent | null {
+  const policy = preferences ?? state.settings
+  const repo = state.repos.find((entry) => entry.id === repoId)
+  const savedAgent = readSourceControlLaunchRecipeAgentId(
+    resolveSourceControlActionRecipe({ settings: state.settings, repo, actionId })
+  )
+  const usable = (agent: TuiAgent): boolean =>
+    isTuiAgentEnabled(agent, policy?.disabledTuiAgents) &&
+    (detected?.includes(agent) === true ||
+      readAgentLaunchChoice(state, agent, workspace, detected).chatEligibility !== 'no')
+  if (savedAgent && actionId === 'fixChecks') {
+    return usable(savedAgent) ? savedAgent : null
+  }
+  return pickSourceControlLaunchAgent({
+    savedAgent,
+    defaultAgent: policy?.defaultTuiAgent,
+    detectedAgents: [...(detected ?? [])],
+    disabledAgents: policy?.disabledTuiAgents,
+    chosenOpensAsChat: usable
+  })
 }

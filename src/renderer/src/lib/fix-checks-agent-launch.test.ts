@@ -3,6 +3,7 @@ import { projectAgentLaunchSettings } from '../../../shared/agent-launch-setting
 import { clearHostAgentMenuSettingsForTests } from '@/components/settings/use-host-agent-launch-preferences'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as ExecutionHostFactsModule from '@/lib/execution-host-facts'
+import type * as HostChatProgramAcquisitionModule from './host-chat-program-acquisition'
 
 const hostRpc = vi.hoisted(() => vi.fn())
 vi.mock('@/runtime/runtime-rpc-client', () => ({
@@ -71,6 +72,10 @@ const mocks = vi.hoisted(() => {
   }
 })
 
+vi.mock('./host-chat-program-acquisition', async (importOriginal) => ({
+  ...(await importOriginal<typeof HostChatProgramAcquisitionModule>()),
+  acquireAgentLaunchChoices: async (_: unknown, run: () => unknown) => ({ detected: await run() })
+}))
 vi.mock('@/store', () => ({
   useAppStore: {
     getState: () => mocks.store

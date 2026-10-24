@@ -58,7 +58,16 @@ export function useSourceControlActionAgentChoice(args: {
   )
   const observation = useAgentMenuObservation(rows.target, args.open, rows.detectionTarget)
   const { detectedIds, detectionFailed, needsServerUpdate } = observation.detection
-  const detectedAgents = detectedIds ?? NO_AGENTS
+  const detectedAgents =
+    observation.model.state === 'settled'
+      ? [
+          ...new Set(
+            observation.model.rows
+              .filter((row) => row.kind !== 'chat-unavailable')
+              .map((row) => row.agent)
+          )
+        ]
+      : (detectedIds ?? NO_AGENTS)
   const detecting = detectedIds === null && !detectionFailed && !needsServerUpdate
   const { preferences } = observation
   const disabledAgents = preferences.disabledTuiAgents
@@ -67,8 +76,11 @@ export function useSourceControlActionAgentChoice(args: {
       ? recipe.agentId
       : pickSourceControlLaunchAgent({
           defaultAgent: preferences.defaultTuiAgent,
-          detectedAgents,
-          disabledAgents
+          detectedAgents: detectedIds ?? NO_AGENTS,
+          disabledAgents,
+          chosenOpensAsChat: (agent) =>
+            observation.model.state === 'settled' &&
+            observation.model.rows.some((row) => row.kind === 'chat' && row.agent === agent)
         })
   // A saved chat stays implicit so a host that stops running chats falls back to a terminal.
   const liveSurface = args.livePick ?? (recipe.surface === 'terminal' ? 'terminal' : undefined)

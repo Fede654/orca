@@ -35,11 +35,15 @@ const mocks = vi.hoisted(() => ({
   }
 }))
 
-vi.mock('@/store', () => ({
-  useAppStore: {
-    getState: () => mocks.store
-  }
-}))
+vi.mock('@/store', async () => {
+  const { createStore } = await import('zustand/vanilla')
+  const store = createStore(() => mocks.store)
+  Object.defineProperty(mocks, 'store', {
+    get: store.getState,
+    set: (state: typeof mocks.store) => store.setState(state, true)
+  })
+  return { useAppStore: store }
+})
 
 vi.mock('sonner', () => ({
   toast: {

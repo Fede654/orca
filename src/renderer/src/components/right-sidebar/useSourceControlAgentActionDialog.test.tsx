@@ -31,7 +31,8 @@ function renderDialog(chat: boolean, capable = true, initialRecipe?: SourceContr
   settings.sourceControlAi!.actions = { resolveConflicts: { agentId: null, launchPreferences } }
   useAppStore.setState({
     settings: { ...settings, experimentalNativeChat: chat },
-    detectedAgentIds: ['claude', 'codex']
+    detectedAgentIds: ['claude', 'codex'],
+    localDetectedAgentIdsByContext: { host: ['claude', 'codex'] }
   })
   setLocalRuntimeCapabilitiesForTests([CHAT, CLIENT, ...(capable ? [SURFACE] : [])])
   const onStart = vi.fn().mockResolvedValue(true)
@@ -123,7 +124,12 @@ it('leaves an untouched saved surface in the draft but omits it when saving to a
 
 it('allows replacing an unavailable saved agent without making it launchable', async () => {
   const f = renderDialog(false, true, { agentId: 'codex', agentArgs: '' })
-  await act(async () => useAppStore.setState({ detectedAgentIds: ['claude'] }))
+  await act(async () =>
+    useAppStore.setState({
+      detectedAgentIds: ['claude'],
+      localDetectedAgentIdsByContext: { host: ['claude'] }
+    })
+  )
   expect(f.result.current.surfaceRows.selection.ready).toBe(true)
   expect(f.result.current.canStart).toBe(false)
   expect(f.result.current.recipe.agentId).toBe('codex')

@@ -1,3 +1,6 @@
+import { runtimeStatusEntry } from '@/runtime/server-layout-frames.test-fixture'
+import { setLocalRuntimeCapabilitiesForTests } from '@/runtime/local-runtime-capabilities'
+import { getRuntimeAgentInventoryKey } from '@/store/slices/runtime-agent-inventory-key'
 import { projectAgentLaunchSettings } from '../../../../../../shared/agent-launch-settings'
 import { makeWorktree, TEST_REPO } from '@/store/slices/worktrees-slice-test-fixtures'
 import { clearHostAgentMenuSettingsForTests } from '@/components/settings/use-host-agent-launch-preferences'
@@ -23,9 +26,6 @@ const { mutationInFlight, detectAgents, launchAgent } = vi.hoisted(() => ({
   mutationInFlight: vi.fn(),
   detectAgents: vi.fn(),
   launchAgent: vi.fn()
-}))
-vi.mock('@/lib/agent-detection-target-inventory', () => ({
-  ensureDetectedAgentsForWorktree: detectAgents
 }))
 vi.mock('@/lib/launch-agent-in-new-tab', () => ({ launchAgentInNewTab: launchAgent }))
 vi.mock('@/lib/focus-terminal-tab-surface', () => ({ focusTerminalTabSurface: vi.fn() }))
@@ -70,12 +70,30 @@ describe('AI operation recovery composer', () => {
     mutationInFlight.mockReset().mockResolvedValue({ inFlight: false })
     detectAgents.mockReset().mockResolvedValue(['codex'])
     launchAgent.mockReset().mockReturnValue({ surface: { kind: 'local-terminal', tabId: 'agent' } })
-    useAppStore.setState({ isRemoteOperationActive: false })
+    setLocalRuntimeCapabilitiesForTests([])
+    useAppStore.setState({
+      isRemoteOperationActive: false,
+      repos: [TEST_REPO],
+      worktreesByRepo: { [TEST_REPO.id]: [makeWorktree({ id: 'wt-1', repoId: TEST_REPO.id })] },
+      ensureDetectedAgents: async () => {
+        const ids: TuiAgent[] = await detectAgents()
+        useAppStore.setState({ localDetectedAgentIdsByContext: { host: ids } })
+        return ids
+      },
+      ensureRuntimeDetectedAgents: async (environmentId, worktreeId) => {
+        const ids: TuiAgent[] = await detectAgents()
+        useAppStore.setState({
+          runtimeDetectedAgentIds: { [getRuntimeAgentInventoryKey(environmentId, worktreeId)]: ids }
+        })
+        return ids
+      }
+    })
   })
 
   afterEach(() => {
     cleanup()
     clearHostAgentMenuSettingsForTests()
+    setLocalRuntimeCapabilitiesForTests(null)
     useAppStore.setState(initialState, true)
   })
 
@@ -223,6 +241,7 @@ describe('AI operation recovery composer', () => {
       useAppStore.setState({
         settings,
         repos: [TEST_REPO],
+        runtimeStatusByEnvironmentId: new Map([['alpha', runtimeStatusEntry('r1', false)]]),
         worktreesByRepo: {
           [TEST_REPO.id]: [
             makeWorktree({ id: 'wt-1', repoId: TEST_REPO.id, hostId: 'runtime:alpha' })
@@ -273,13 +292,26 @@ describe('AI operation recovery composer', () => {
     }
   )
 
-  it.each(['unavailable', 'error'] as const)(
-    'does not reopen an obsolete fallback after saved detection returns %s',
+  it.each(['unavailable', 'error', 'runtime-replaced'] as const)(
+    'does not reopen an obsolete fallback when saved discovery ends as %s',
     async (resultKind) => {
       const detection = deferred<TuiAgent[]>()
       detectAgents.mockReturnValueOnce(detection.promise)
       const settings = getDefaultSettings(path.resolve('tmp'))
       settings.sourceControlAi!.actions = { resolveConflicts: { agentId: 'codex' } }
+      if (resultKind === 'runtime-replaced') {
+        useAppStore.setState({
+          runtimeStatusByEnvironmentId: new Map([['alpha', runtimeStatusEntry('r1', false)]]),
+          worktreesByRepo: {
+            [TEST_REPO.id]: [
+              makeWorktree({ id: 'wt-1', repoId: TEST_REPO.id, hostId: 'runtime:alpha' })
+            ]
+          }
+        })
+        hostRpc.mockResolvedValue({
+          settings: projectAgentLaunchSettings({ defaultTuiAgent: 'codex' })
+        })
+      }
       const first = controllerParams({ settings })
       const view = renderHook(useSourceControlAi, { initialProps: first })
       let starting: Promise<void> = Promise.resolve()
@@ -287,12 +319,26 @@ describe('AI operation recovery composer', () => {
         starting = view.result.current.handleResolveConflictsWithAI()
       })
       await waitFor(() => expect(detectAgents).toHaveBeenCalledOnce())
-      view.rerender(controllerParams({ settings, activeWorktreeId: 'wt-2', worktreePath: '/wt-2' }))
-      view.rerender(first)
+      if (resultKind === 'runtime-replaced') {
+        await act(async () => {
+          useAppStore.setState({
+            runtimeStatusByEnvironmentId: new Map([['alpha', runtimeStatusEntry('r2', false)]])
+          })
+          await starting
+          detection.resolve(['codex'])
+        })
+        expect(toast.error).not.toHaveBeenCalled()
+        expect(first.updateSettingsOrThrow).not.toHaveBeenCalled()
+      } else {
+        view.rerender(
+          controllerParams({ settings, activeWorktreeId: 'wt-2', worktreePath: '/wt-2' })
+        )
+        view.rerender(first)
+      }
       await act(async () => {
         if (resultKind === 'error') {
           detection.reject(new Error('Detection failed'))
-        } else {
+        } else if (resultKind === 'unavailable') {
           detection.resolve([])
         }
         await starting
