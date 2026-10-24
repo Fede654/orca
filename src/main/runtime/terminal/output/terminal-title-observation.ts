@@ -8,6 +8,7 @@ import type { TerminalTitleFactMeta } from '../../../../shared/terminal-output-s
 import { detectAgentStatusFromTitle } from '../../../../shared/agent-detection'
 import { terminalTitleBlocksExplicitAgentStatus } from '../../runtime-worktree-status-projection'
 import type { ClaudeTerminalEvidence } from '../../../../shared/claude-terminal-interrupt'
+import type { OrchestrationMailboxLeaf } from '../../orchestration/mailbox-owner'
 
 export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWithGetUnpersistedTrackedTitleForPty {
   protected abstract collectPaneKeysForPty(ptyId: string): Set<string>
@@ -41,6 +42,9 @@ export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWit
     leafId: string
   }): boolean
   protected abstract deliverPendingMessagesForLeaf(leaf: RuntimeLeafRecord): void
+  protected abstract getParkedOrchestrationLeafForPty(
+    pty: RuntimePtyWorktreeRecord | null | undefined
+  ): OrchestrationMailboxLeaf | null
   protected abstract clearAgentPromptCorrelationForPty(ptyId: string): void
   protected abstract collectAgentStatusPaneKeysForPty(ptyId: string): Set<string>
   protected abstract markPaneLiveTitlesDirty(): void
@@ -125,10 +129,12 @@ export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWit
     // Why before retiring the clear: the lifecycle counts a turn from the status the clear showed.
     this.recordAgentPromptLifecycleState(ptyId, agentStatus)
     let ptyRecordChanged = false
+    let parkedIdleEdge = false
     const pty = this.ptysById.get(ptyId)
     if (pty) {
       const prevStatus = pty.lastAgentStatus
       const prevTitle = pty.lastOscTitle
+      const prevObservedLive = pty.lastAgentStatusObservedLive
       const observedAt = this.nextTitleObservationSequence()
       const observedAtEpochMs = identityOnlyTitle ? null : Date.now()
       if (!statusOnly) {
@@ -139,6 +145,9 @@ export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWit
       }
       pty.lastAgentStatus = agentStatus
       pty.lastAgentStatusObservedLive = true
+      parkedIdleEdge =
+        agentStatus === 'idle' &&
+        (prevStatus !== 'idle' || !prevObservedLive || (!statusOnly && prevTitle !== recordedTitle))
       if (prevStatus === 'working' && agentStatus === null) {
         this.confirmPtyAgentExit(ptyId, true)
       }
@@ -194,6 +203,13 @@ export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWit
       this.orchestrationMailboxPointerDelivery.observeAgentWorking(ptyId)
     } else if (agentStatus === 'idle') {
       this.orchestrationMailboxPointerDelivery.observeAgentIdle(ptyId)
+    }
+    if (pty && parkedIdleEdge && this.getLeavesForPty(ptyId).length === 0) {
+      const parked = this.getParkedOrchestrationLeafForPty(pty)
+      const handle = this.handleByPtyId.get(ptyId)
+      if (parked && handle && this.checkDeliverySettledAndArmRecheck(parked)) {
+        this.deliverPendingMessagesForHandle(handle)
+      }
     }
     for (const leaf of this.getLeavesForPty(ptyId)) {
       // Why: keep the latest OSC title on the leaf so worktree.ps can

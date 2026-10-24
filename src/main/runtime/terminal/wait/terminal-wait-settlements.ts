@@ -15,6 +15,7 @@ import { buildTerminalWaitText } from '../../terminal-wait-tail-state'
 import {
   evaluateTuiIdle,
   isTuiIdleReadyVerdict,
+  type TuiIdleEvaluationInput,
   type TuiIdleVerdict
 } from '../../tui-idle-evidence'
 import { leafTuiIdleEvidence, ptyTuiIdleEvidence } from '../../tui-idle-evidence-source'
@@ -172,7 +173,7 @@ export abstract class OrcaRuntimeWithResolveExitWaiters extends OrcaRuntimeWithB
     if (this.deliveryRecheckTimersByLeafKey.has(leafKey)) {
       return
     }
-    const live = this.leaves.get(leafKey)
+    const live = this.leaves.get(leafKey) ?? this.getParkedOrchestrationPtyForLeafKey(leafKey)
     // Why this delay: the only refusal that time alone can lift is tier 3 waiting on the
     // stream to go quiet, so wake just after the window could have elapsed. A pane that is
     // still producing output re-arms from its own fresher timestamp rather than spinning.
@@ -182,6 +183,13 @@ export abstract class OrcaRuntimeWithResolveExitWaiters extends OrcaRuntimeWithB
       this.deliveryRecheckTimersByLeafKey.delete(leafKey)
       const current = this.leaves.get(leafKey)
       if (!current) {
+        // A parked (graph-less) pane redelivers through its handle; see getOrchestrationMailboxLeafForHandle.
+        const pty = this.getParkedOrchestrationPtyForLeafKey(leafKey)
+        const parked = this.getParkedOrchestrationLeafForPty(pty)
+        const handle = pty ? this.handleByPtyId.get(pty.ptyId) : undefined
+        if (handle && parked && this.checkDeliverySettledAndArmRecheck(parked)) {
+          this.deliverPendingMessagesForHandle(handle)
+        }
         return
       }
       // Why the gate again here: delivery sites gate at the CALL, not inside
@@ -205,13 +213,22 @@ export abstract class OrcaRuntimeWithResolveExitWaiters extends OrcaRuntimeWithB
    * keep their own `lastAgentStatusObservedLive` checks.
    */
   protected isAgentSettledForDelivery(leaf: { tabId: string; leafId: string }): boolean {
-    const live = this.leaves.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-    if (!live) {
+    const leafKey = this.getLeafKey(leaf.tabId, leaf.leafId)
+    const live = this.leaves.get(leafKey)
+    // Why the PTY lane: a parked (graph-less) pane's evidence lives on its PTY record.
+    const parkedPty = live ? null : this.getParkedOrchestrationPtyForLeafKey(leafKey)
+    let evidence: TuiIdleEvaluationInput
+    if (live) {
+      evidence = leafTuiIdleEvidence(this.tuiIdleEvidenceSource, live, () =>
+        buildTerminalWaitText(live.tailBuffer, live.tailPartialLine, live.preview)
+      )
+    } else if (parkedPty) {
+      evidence = ptyTuiIdleEvidence(this.tuiIdleEvidenceSource, parkedPty, () =>
+        buildTerminalWaitText(parkedPty.tailBuffer, parkedPty.tailPartialLine, parkedPty.preview)
+      )
+    } else {
       return false
     }
-    const evidence = leafTuiIdleEvidence(this.tuiIdleEvidenceSource, live, () =>
-      buildTerminalWaitText(live.tailBuffer, live.tailPartialLine, live.preview)
-    )
     // Why no blocked reader: a refusal here re-arms a recheck that a lingering tail prompt
     // would spin, so delivery keeps its own, blocked-blind, reading of the same ranking.
     return isTuiIdleReadyVerdict(

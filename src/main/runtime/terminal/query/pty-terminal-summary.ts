@@ -16,6 +16,7 @@ import {
 import type { PtyIncarnationHandleRecord } from '../../orca-runtime-core'
 import type { TerminalHandleRecord } from '../../runtime-terminal-contracts'
 import { readTerminalTail } from '../../terminal-tail-read'
+import type { OrchestrationMailboxLeaf } from '../../orchestration/mailbox-owner'
 import { structuredWorkerTerminalRefusal } from '../../structured-worker-terminal-refusal'
 import { randomUUID } from 'node:crypto'
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../shared/layout-owner-switch'
@@ -119,6 +120,80 @@ export abstract class OrcaRuntimeWithBuildPtyTerminalSummary extends OrcaRuntime
       throw new Error('terminal_handle_stale')
     }
     return { record, leaf }
+  }
+
+  protected getOrchestrationMailboxLeafForHandle(handle: string): OrchestrationMailboxLeaf {
+    try {
+      return this.getLiveLeafForHandle(handle).leaf
+    } catch (error) {
+      const live = this.getLivePtyForHandle(handle)
+      const parked = this.getParkedOrchestrationLeafForPty(live?.pty)
+      if (parked && live?.record.ptyId === parked.ptyId) {
+        return parked
+      }
+      throw error
+    }
+  }
+
+  protected getParkedOrchestrationLeafForPty(
+    pty: RuntimePtyWorktreeRecord | null | undefined
+  ): OrchestrationMailboxLeaf | null {
+    if (!pty?.connected || !pty.tabId || !pty.paneKey) {
+      return null
+    }
+    const pane = parsePaneKey(pty.paneKey)
+    if (
+      !pane ||
+      pane.tabId !== pty.tabId ||
+      this.leaves.has(this.getLeafKey(pane.tabId, pane.leafId))
+    ) {
+      return null
+    }
+    return {
+      tabId: pane.tabId,
+      leafId: pane.leafId,
+      ptyId: pty.ptyId,
+      writable: true,
+      lastAgentStatus: pty.lastAgentStatus,
+      lastAgentStatusObservedLive: pty.lastAgentStatusObservedLive,
+      lastOscTitle: pty.lastOscTitle
+    }
+  }
+
+  protected getParkedOrchestrationPtyForLeafKey(leafKey: string): RuntimePtyWorktreeRecord | null {
+    if (this.leaves.has(leafKey)) {
+      return null
+    }
+    for (const pty of this.ptysById.values()) {
+      const parked = this.getParkedOrchestrationLeafForPty(pty)
+      if (parked && this.getLeafKey(parked.tabId, parked.leafId) === leafKey) {
+        return pty
+      }
+    }
+    return null
+  }
+
+  protected getOrchestrationMailboxLeafForKey(
+    leafKey: string
+  ): OrchestrationMailboxLeaf | undefined {
+    const live = this.leaves.get(leafKey)
+    if (live) {
+      return live
+    }
+    return (
+      this.getParkedOrchestrationLeafForPty(this.getParkedOrchestrationPtyForLeafKey(leafKey)) ??
+      undefined
+    )
+  }
+
+  protected getOrchestrationTerminalHandleForLeafKey(leafKey: string): string | undefined {
+    const graphHandle = this.handleByLeafKey.get(leafKey)
+    if (graphHandle) {
+      return graphHandle
+    }
+    const pty = this.getParkedOrchestrationPtyForLeafKey(leafKey)
+    const handle = pty ? this.handleByPtyId.get(pty.ptyId) : undefined
+    return handle && this.getLivePtyForHandle(handle)?.pty === pty ? handle : undefined
   }
 
   protected getLivePtyForHandle(handle: string): {

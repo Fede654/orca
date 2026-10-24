@@ -120,6 +120,11 @@ export abstract class RuntimeConstructionServices {
     record: TerminalHandleRecord
     leaf: RuntimeLeafRecord
   }
+  protected abstract getOrchestrationMailboxLeafForHandle(handle: string): OrchestrationMailboxLeaf
+  protected abstract getOrchestrationMailboxLeafForKey(
+    leafKey: string
+  ): OrchestrationMailboxLeaf | undefined
+  protected abstract getOrchestrationTerminalHandleForLeafKey(leafKey: string): string | undefined
   protected abstract startTuiIdleVisibleReadProbe(
     waiter: TerminalWaiter,
     waiterTimeoutMs: number,
