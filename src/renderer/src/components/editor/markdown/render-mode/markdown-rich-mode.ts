@@ -13,6 +13,8 @@ import { translate } from '@/i18n/i18n'
 import { encodeRawMarkdownHtmlForRichEditor } from '../../rich-markdown/raw-source/raw-markdown-html'
 import { createRichMarkdownEditorCodec } from '../../rich-markdown/document/rich-markdown-source-transport'
 import { preservesRichMarkdownFootnoteMarkers } from '../../rich-markdown/footnotes/rich-markdown-footnote-source'
+import { getGfmDefinitionReason } from './markdown-rich-definition-probe'
+import { stripMarkdownCode } from './markdown-rich-mode-code-strip'
 
 export type MarkdownRichModeUnsupportedReason =
   | 'html-or-jsx'
@@ -99,6 +101,10 @@ export function getMarkdownRichModeUnsupportedReason(
   // Embedded HTML and footnotes need a preservation proof before visual editing.
   const htmlMatcher = UNSUPPORTED_PATTERNS.find((m) => m.reason === 'html-or-jsx')
   const hasHtml = htmlMatcher && hasHtmlOrJsx(contentWithoutCode, htmlMatcher.pattern)
+  const definitionReason = getGfmDefinitionReason(body)
+  if (definitionReason === 'reference-links') {
+    return definitionReason
+  }
 
   let hasFootnotes = false
   for (const matcher of UNSUPPORTED_PATTERNS) {
@@ -112,6 +118,13 @@ export function getMarkdownRichModeUnsupportedReason(
       }
       return matcher.reason
     }
+  }
+
+  if (
+    definitionReason === 'footnotes-unsupported' ||
+    (definitionReason === 'footnotes' && !hasFootnotes)
+  ) {
+    return 'footnotes'
   }
 
   if (hasHtml || hasFootnotes) {
@@ -211,33 +224,6 @@ function isHtmlOrJsxFragment(fragment: string): boolean {
 
   const suffix = fragment.slice(tagName.length + 1, -1)
   return suffix.length > 0 || KNOWN_MARKDOWN_HTML_TAG_NAMES.has(tagName.toLowerCase())
-}
-
-function stripMarkdownCode(content: string): string {
-  let sanitized = ''
-  let activeFence: '`' | '~' | null = null
-  let lineStart = 0
-
-  while (lineStart <= content.length) {
-    const newlineIndex = content.indexOf('\n', lineStart)
-    const index = newlineIndex === -1 ? content.length : newlineIndex
-    const lineEnd = index > lineStart && content.charCodeAt(index - 1) === 13 ? index - 1 : index
-    const line = content.slice(lineStart, lineEnd)
-    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/)
-    if (fenceMatch) {
-      const fenceMarker = fenceMatch[1][0] as '`' | '~'
-      activeFence = activeFence === fenceMarker ? null : fenceMarker
-    } else if (!activeFence) {
-      sanitized += line.replace(/`+[^`\n]*`+/g, '')
-    }
-
-    if (index < content.length) {
-      sanitized += '\n'
-    }
-    lineStart = index + 1
-  }
-
-  return sanitized
 }
 
 function preservesEmbeddedHtml(contentWithoutCode: string, roundTripOutput: string): boolean {
