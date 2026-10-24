@@ -2,10 +2,10 @@
 import { useSyncExternalStore } from 'react'
 import type { BrowserAgentCursorEvent } from '../../../../../shared/browser-agent-activity-contract'
 
-/** A mounted page draws the cursor and returns whether it will report the arrival itself. */
+/** A mounted page draws the cursor and glow; `show` says whether it will report the arrival. */
 type BrowserAgentCursorSink = {
   show: (event: BrowserAgentCursorEvent) => boolean
-  hide: () => void
+  setActive: (active: boolean) => void
 }
 
 /** The page an agent in a worktree last drove; `revision` orders it against other activity. */
@@ -45,8 +45,8 @@ export function setBrowserAgentPageActive(
   } else {
     activePageIds.delete(browserPageId)
     lastCursorByPage.delete(browserPageId)
-    sinksByPage.get(browserPageId)?.hide()
   }
+  sinksByPage.get(browserPageId)?.setActive(active)
   notify()
 }
 
@@ -56,14 +56,16 @@ export function showBrowserAgentCursor(event: BrowserAgentCursorEvent): boolean 
   return sinksByPage.get(event.browserPageId)?.show(event) ?? false
 }
 
-/** Registers the page's cursor layer and parks the cursor where the agent last acted. */
+/** Registers the page's agent layer, lit if an agent drives the page, cursor where it last acted. */
 export function attachBrowserAgentCursorSink(
   browserPageId: string,
   sink: BrowserAgentCursorSink
 ): () => void {
   sinksByPage.set(browserPageId, sink)
+  const active = activePageIds.has(browserPageId)
+  sink.setActive(active)
   const last = lastCursorByPage.get(browserPageId)
-  if (last && activePageIds.has(browserPageId)) {
+  if (last && active) {
     sink.show({ ...last, press: false, awaitsArrival: false })
   }
   return () => {

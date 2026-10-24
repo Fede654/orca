@@ -3,6 +3,8 @@ import { createAgentCursor, type AgentCursorController } from './agent-cursor-mo
 import { attachBrowserAgentCursorSink } from './browser-agent-activity-state'
 import { readPrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
+const AGENT_ACTIVE_ATTRIBUTE = 'data-agent-active'
+
 /** Whether a person could see the page right now; hidden pages take the cursor without waiting. */
 function isOnScreen(webview: Electron.WebviewTag, rect: DOMRect): boolean {
   return (
@@ -18,8 +20,8 @@ function isOnScreen(webview: Electron.WebviewTag, rect: DOMRect): boolean {
 }
 
 /**
- * Draws the agent's cursor over a page. The layer is created on the first cursor event inside
- * `getHost()`, which must stack above the guest, so a page no agent drives costs nothing.
+ * Draws the agent's glow and cursor over a page. The layer is created inside `getHost()`, which
+ * must stack above the guest, only once an agent drives the page, so other pages cost nothing.
  */
 export function useBrowserAgentCursor(
   browserPageId: string,
@@ -70,6 +72,7 @@ export function useBrowserAgentCursor(
           return false
         }
         const { layer, cursor } = ensureDrawn(host)
+        layer.toggleAttribute(AGENT_ACTIVE_ATTRIBUTE, true)
         const layerRect = layer.getBoundingClientRect()
         const point = {
           x: page.left - layerRect.left + (event.x * page.width) / event.viewportWidth,
@@ -84,7 +87,18 @@ export function useBrowserAgentCursor(
         }
         return true
       },
-      hide: () => drawn?.cursor.setVisible(false)
+      setActive: (active) => {
+        if (!active) {
+          drawn?.layer.toggleAttribute(AGENT_ACTIVE_ATTRIBUTE, false)
+          drawn?.cursor.setVisible(false)
+          return
+        }
+        // The glow shows while the agent works, even before it moves the pointer.
+        const host = getHost()
+        if (host) {
+          ensureDrawn(host).layer.toggleAttribute(AGENT_ACTIVE_ATTRIBUTE, true)
+        }
+      }
     })
 
     return () => {
