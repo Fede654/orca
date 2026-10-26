@@ -513,9 +513,7 @@ describe('remote-paired pane: host snapshot mirror vs client byte-derived status
     })
   })
 
-  // A host hook row can finish a turn without refreshing `updatedAt` (observed: a Claude `done` whose
-  // `updatedAt` was hours old while its `stateStartedAt` was the current turn), so `updatedAt`
-  // alone cannot order two rows from the same host.
+  // Host transitions can retain an older updatedAt than the state they replace.
   describe('host-mirrored transitions', () => {
     const HOST_RUNNING = {
       state: 'working' as const,
@@ -539,7 +537,7 @@ describe('remote-paired pane: host snapshot mirror vs client byte-derived status
       return store
     }
 
-    it('ends a mirrored working when the host done is newer by stateStartedAt but older by updatedAt', () => {
+    it('accepts completion, ignores the preceding working replay, and accepts the next turn', () => {
       const store = seedMirroredWorking()
 
       applyHostSnapshot(
@@ -558,28 +556,63 @@ describe('remote-paired pane: host snapshot mirror vs client byte-derived status
       )
 
       expect(store.getState().agentStatusByPaneKey[MIRROR_PANE_KEY]?.state).toBe('done')
-    })
 
-    it('ignores a replayed host done from before the mirrored working started', () => {
-      const store = seedMirroredWorking()
+      const completedSortEpoch = store.getState().sortEpoch
+      applyHostSnapshot(
+        store,
+        makeHostSnapshot({
+          snapshotVersion: 3,
+          hostNow: T0 + 21_000,
+          includeAgentStatus: true,
+          agentStatusOverrides: HOST_RUNNING
+        }),
+        T0 + 21_000
+      )
+
+      expect(store.getState().agentStatusByPaneKey[MIRROR_PANE_KEY]?.state).toBe('done')
+      expect(store.getState().sortEpoch).toBe(completedSortEpoch)
 
       applyHostSnapshot(
         store,
         makeHostSnapshot({
-          snapshotVersion: 2,
-          hostNow: T0 + 20_000,
+          snapshotVersion: 4,
+          hostNow: T0 + 30_000,
           includeAgentStatus: true,
           agentStatusOverrides: {
-            state: 'done',
-            updatedAt: T0 - 3_600_000,
-            stateStartedAt: T0 + 1_000
+            state: 'working',
+            updatedAt: T0 + 30_000,
+            stateStartedAt: T0 + 30_000
           }
         }),
-        T0 + 20_000
+        T0 + 30_000
       )
 
       expect(store.getState().agentStatusByPaneKey[MIRROR_PANE_KEY]?.state).toBe('working')
     })
+
+    it.each([T0 - 3_600_000, T0 + 30_000])(
+      'ignores an older host done with updatedAt %s',
+      (updatedAt) => {
+        const store = seedMirroredWorking()
+
+        applyHostSnapshot(
+          store,
+          makeHostSnapshot({
+            snapshotVersion: 2,
+            hostNow: T0 + 20_000,
+            includeAgentStatus: true,
+            agentStatusOverrides: {
+              state: 'done',
+              updatedAt,
+              stateStartedAt: T0 + 1_000
+            }
+          }),
+          T0 + 20_000
+        )
+
+        expect(store.getState().agentStatusByPaneKey[MIRROR_PANE_KEY]?.state).toBe('working')
+      }
+    )
 
     it('leaves a client-owned working to the fence even when the host done looks newer', () => {
       const store = seedPairedClientStore()

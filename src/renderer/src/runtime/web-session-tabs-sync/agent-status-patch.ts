@@ -96,18 +96,18 @@ export function buildMirroredAgentStatusPatch(
     const clientOwnsEntry =
       isFencedClientAgentStatus(entry.paneKey, existing, now) &&
       !hostAgentStatusPiercesClientAuthority(entry)
-    // Why: a host `done` can carry an `updatedAt` older than the mirrored `working` it ends, so
-    // last-write-wins on `updatedAt` pinned `working`; both rows are host-clock, so the newer
-    // `stateStartedAt` is the real order.
-    const hostTransitionSupersedesMirrored =
-      !clientOwnsEntry &&
+    // Host transitions may retain stale updatedAt stamps; order them by state start in both directions.
+    const compareHostTransitions =
       existing?.mirroredEvidenceReceivedAt !== undefined &&
       existing.state !== entry.state &&
-      entry.stateStartedAt > existing.stateStartedAt
+      entry.stateStartedAt !== existing.stateStartedAt
+    const existingIsNewer =
+      existing !== undefined &&
+      (compareHostTransitions
+        ? existing.stateStartedAt > entry.stateStartedAt
+        : existing.updatedAt > entry.updatedAt)
     const nextEntry =
-      existing &&
-      !hostTransitionSupersedesMirrored &&
-      (clientOwnsEntry || existing.updatedAt > entry.updatedAt)
+      existing && (clientOwnsEntry || existingIsNewer)
         ? {
             ...normalizeCompatibleAgentStatusEntryForOwner(existing, entry.agentType),
             ...(clientOwnsEntry && existing.state === 'working' && entry.state === 'working'
