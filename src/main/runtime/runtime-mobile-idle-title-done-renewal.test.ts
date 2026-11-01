@@ -30,4 +30,29 @@ describe('paired/mobile done status when the idle title text did not change this
     )
     expect(out).toMatchObject({ state: 'done', updatedAt: stopAt, prompt: hookDone.prompt })
   })
+
+  it('still restamps done from the title when the idle title is newer than the hook', () => {
+    const hookAt = 1_700_000_000_000
+    const idleAt = hookAt + 30_000
+    const out = renewRuntimeMobileAgentStatusFromPtyTitle(
+      {
+        state: 'done',
+        prompt: 'earlier turn',
+        updatedAt: hookAt,
+        stateStartedAt: hookAt,
+        agentType: 'claude',
+        paneKey: 'tab-1:leaf-1',
+        stateHistory: []
+      },
+      makeTuiIdlePty({
+        worktreeId: 'wt-1',
+        lastOscTitle: '✳ Claude Code',
+        lastOscTitleEpochMs: idleAt,
+        lastAgentStatus: 'idle',
+        lastAgentStatusStartedAtEpochMs: idleAt,
+        lastAgentStatusRichInvalidatedAtEpochMs: idleAt
+      })
+    )
+    expect(out).toMatchObject({ state: 'done', updatedAt: idleAt })
+  })
 })
