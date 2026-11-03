@@ -5,7 +5,8 @@ export type SpeechModelType =
   | 'senseVoice'
   | 'nemo-ctc'
   | 'openai'
-export type SpeechModelProvider = 'local' | 'openai'
+  | 'remote'
+export type SpeechModelProvider = 'local' | 'openai' | 'remote'
 
 export type ModelingUnit = 'bpe' | 'cjkchar' | 'cjkchar+bpe'
 

@@ -43,7 +43,10 @@ describe('speech on orcad (#31174)', () => {
   it('answers speech.models.list instead of speech_unavailable, with only models it can run', async () => {
     const store = orcadHost({})
     const setup = await new RuntimeMobileSpeechCatalog(() => store).list()
-    const cloudIds = SPEECH_MODEL_CATALOG.filter((m) => !isLocalSpeechModel(m)).map((m) => m.id)
+    // Remote-server models are desktop-only, so phones never see them.
+    const cloudIds = SPEECH_MODEL_CATALOG.filter(
+      (m) => !isLocalSpeechModel(m) && m.provider !== 'remote'
+    ).map((m) => m.id)
     expect(setup.models.map((m) => m.id)).toEqual(cloudIds)
   })
 

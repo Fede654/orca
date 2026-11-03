@@ -12,6 +12,12 @@ import {
   hasOpenAiSpeechApiKey,
   saveOpenAiSpeechApiKey
 } from '../speech/openai-api-key-store'
+import {
+  checkRemoteSttHealth,
+  clearRemoteSttEndpoint,
+  readRemoteSttBaseUrl,
+  saveRemoteSttEndpoint
+} from '../speech/remote-stt-endpoint-store'
 import type { Store } from '../persistence/loading-store/store'
 
 export function registerSpeechHandlers(store: Store): void {
@@ -35,6 +41,24 @@ export function registerSpeechHandlers(store: Store): void {
   ipcMain.handle('speech:clearOpenAiApiKey', async () => {
     clearOpenAiSpeechApiKey()
     return { configured: false, protection: null }
+  })
+
+  ipcMain.handle('speech:getRemoteEndpoint', async () => {
+    return { url: readRemoteSttBaseUrl() }
+  })
+
+  ipcMain.handle('speech:saveRemoteEndpoint', async (_event, url: string) => {
+    return { url: saveRemoteSttEndpoint(url) }
+  })
+
+  ipcMain.handle('speech:clearRemoteEndpoint', async () => {
+    clearRemoteSttEndpoint()
+    return { url: null }
+  })
+
+  ipcMain.handle('speech:checkRemoteEndpoint', async () => {
+    const url = readRemoteSttBaseUrl()
+    return url ? checkRemoteSttHealth(url) : { ok: false as const, error: 'not configured' }
   })
 
   ipcMain.handle('speech:downloadModel', async (event, modelId: string) => {
