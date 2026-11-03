@@ -8,6 +8,7 @@ import type {
 } from '../../shared/speech-types'
 import { SPEECH_MODEL_CATALOG, getCatalogModel, isLocalSpeechModel } from './model-catalog'
 import { hasOpenAiSpeechApiKey } from './openai-api-key-store'
+import { hasRemoteSttEndpoint } from './remote-stt-endpoint-store'
 import {
   getSpeechModelCacheDirCandidates,
   migrateSpeechModelCacheIfNeeded,
@@ -103,8 +104,9 @@ export class ModelManager extends SpeechModelDownloadTransport {
       return { id: modelId, status: 'error', error: 'Unknown model' }
     }
 
-    if (manifest.provider === 'openai') {
-      return { id: modelId, status: this.hasOpenAiKey() ? 'ready' : 'not-downloaded' }
+    if (manifest.provider !== 'local') {
+      const ready = manifest.provider === 'openai' ? this.hasOpenAiKey() : hasRemoteSttEndpoint()
+      return { id: modelId, status: ready ? 'ready' : 'not-downloaded' }
     }
 
     const modelDir = this.getModelDir(modelId)

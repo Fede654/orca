@@ -1,4 +1,8 @@
 import { resampleToRate } from './stt-audio-resample'
+import {
+  getRemoteTranscriptionUrl,
+  REMOTE_TRANSCRIPTION_MODEL_BY_ID
+} from './remote-stt-endpoint-store'
 
 export const OPENAI_TRANSCRIPTION_MODEL_BY_ID: Record<string, string> = {
   'openai-gpt-4o-mini-transcribe': 'gpt-4o-mini-transcribe',
@@ -91,7 +95,9 @@ export class OpenAiTranscriptionSession {
   constructor(
     private readonly modelId: string,
     private readonly readApiKey: () => string,
-    private readonly language?: string
+    private readonly language?: string,
+    // Set for the remote provider: an OpenAI-compatible server reached without credentials.
+    private readonly remoteBaseUrl?: string
   ) {}
 
   cancel(): void {
@@ -118,9 +124,11 @@ export class OpenAiTranscriptionSession {
       return ''
     }
 
-    const apiModel = OPENAI_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
+    const apiModel = this.remoteBaseUrl
+      ? REMOTE_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
+      : OPENAI_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
     if (!apiModel) {
-      throw new Error(`Unknown OpenAI transcription model: ${this.modelId}`)
+      throw new Error(`Unknown transcription model: ${this.modelId}`)
     }
 
     const chunks = this.chunks
@@ -142,26 +150,34 @@ export class OpenAiTranscriptionSession {
       return await this.upload(form, AbortSignal.any([this.abortController.signal, timeout]))
     } catch (error) {
       if (timeout.aborted && !this.abortController.signal.aborted) {
-        throw new Error('OpenAI transcription timed out. Check your connection and try again.')
+        throw new Error(
+          `${this.providerLabel()} transcription timed out. Check your connection and try again.`
+        )
       }
       throw error
     }
   }
 
+  private providerLabel(): string {
+    return this.remoteBaseUrl ? 'Remote' : 'OpenAI'
+  }
+
   private async upload(form: FormData, signal: AbortSignal): Promise<string> {
-    const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
-      method: 'POST',
-      signal,
-      headers: {
-        Authorization: `Bearer ${this.readApiKey()}`
-      },
-      body: form
-    })
+    // Remote servers get no credentials: the OpenAI key must never leave for another host.
+    const response = await fetch(
+      this.remoteBaseUrl ? getRemoteTranscriptionUrl(this.remoteBaseUrl) : OPENAI_TRANSCRIPTION_URL,
+      {
+        method: 'POST',
+        signal,
+        headers: this.remoteBaseUrl ? {} : { Authorization: `Bearer ${this.readApiKey()}` },
+        body: form
+      }
+    )
 
     const data = (await response.json().catch(() => ({}))) as OpenAiTranscriptionResponse
     if (!response.ok) {
       throw new Error(
-        `OpenAI transcription failed: ${readOpenAiErrorMessage(data) ?? response.statusText}`
+        `${this.providerLabel()} transcription failed: ${readOpenAiErrorMessage(data) ?? response.statusText}`
       )
     }
 

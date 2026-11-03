@@ -16,6 +16,10 @@ export type SpeechApi = {
   }>
   saveOpenAiApiKey: (apiKey: string) => Promise<{ configured: boolean }>
   clearOpenAiApiKey: () => Promise<{ configured: boolean }>
+  getRemoteEndpoint: () => Promise<{ url: string | null }>
+  saveRemoteEndpoint: (url: string) => Promise<{ url: string }>
+  clearRemoteEndpoint: () => Promise<{ url: null }>
+  checkRemoteEndpoint: () => Promise<{ ok: true } | { ok: false; error: string }>
   downloadModel: (modelId: string) => Promise<void>
   cancelDownload: (modelId: string) => Promise<void>
   deleteModel: (modelId: string) => Promise<void>

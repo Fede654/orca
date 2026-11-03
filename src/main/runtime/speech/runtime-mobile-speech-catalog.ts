@@ -39,17 +39,22 @@ export class RuntimeMobileSpeechCatalog {
     const states = await getSpeechModelManager(store).getModelStates()
     const stateById = new Map(states.map((state) => [state.id, state]))
     // Omit unsupported status variants; older phones could treat them as pickable models.
+    // Remote-server models are listed only once this host has a server URL ('ready'): phone builds
+    // that predate 'remote' degrade the provider to absent and render the row by status, so an
+    // unconfigured remote row would look like a local model and offer a download that must fail.
     const localRunnable = hasLocalSpeechRecognizer()
     const runnable = SPEECH_MODEL_CATALOG.filter(
       (manifest) =>
-        isOfferedSpeechModel(manifest) && (localRunnable || !isLocalSpeechModel(manifest))
+        isOfferedSpeechModel(manifest) &&
+        (localRunnable || !isLocalSpeechModel(manifest)) &&
+        (manifest.provider !== 'remote' || stateById.get(manifest.id)?.status === 'ready')
     )
     const models: RuntimeSpeechModelSummary[] = runnable.map((manifest) => {
       const state = stateById.get(manifest.id)
       return {
         id: manifest.id,
         label: manifest.label,
-        provider: manifest.provider === 'openai' ? 'openai' : 'local',
+        provider: manifest.provider,
         sizeBytes: manifest.sizeBytes ?? null,
         recommended: manifest.recommended === true,
         status: state?.status ?? 'not-downloaded',
