@@ -9,6 +9,8 @@ import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import { OpenAiTranscriptionKeyDialog } from './OpenAiTranscriptionKeyDialog'
 import { OpenAiTranscriptionSettingsRow } from './OpenAiTranscriptionSettingsRow'
+import { RemoteSttEndpointDialog } from './RemoteSttEndpointDialog'
+import { RemoteSttEndpointSettingsRow } from './RemoteSttEndpointSettingsRow'
 import { handleVoiceDictationToggle } from './voice-dictation-toggle'
 import { VoiceDictationSettingsSection } from './VoiceDictationSettingsSection'
 import { VoiceSpeechModelSection } from './VoiceSpeechModelSection'
@@ -40,6 +42,11 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
     null
   )
   const [pendingCloudModelId, setPendingCloudModelId] = useState<string | null>(null)
+  const [remoteUrl, setRemoteUrl] = useState<string | null>(null)
+  const [remoteDialogOpen, setRemoteDialogOpen] = useState(false)
+  const [remoteUrlDraft, setRemoteUrlDraft] = useState('')
+  const [remotePending, setRemotePending] = useState(false)
+  const [pendingRemoteModelId, setPendingRemoteModelId] = useState<string | null>(null)
   const mountedRef = useRef(true)
   // Merge async whole-object writes into committed current settings; render snapshots could undo toggles changed during IPC and disable the microphone picker.
   const voiceSettingsRef = useRef(voiceSettings)
@@ -84,6 +91,14 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
         if (status.configured !== voiceSettings.openAiApiKeyConfigured) {
           updateVoiceSettings({ openAiApiKeyConfigured: status.configured })
           refreshModelStates()
+        }
+      })
+      .catch(() => {})
+    void window.api.speech
+      .getRemoteEndpoint()
+      .then((endpoint) => {
+        if (!cancelled) {
+          setRemoteUrl(endpoint.url)
         }
       })
       .catch(() => {})
@@ -183,6 +198,78 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
     }
   }
 
+  const openRemoteDialog = (modelId: string | null = null): void => {
+    setPendingRemoteModelId(modelId)
+    setRemoteUrlDraft(remoteUrl ?? '')
+    setRemoteDialogOpen(true)
+  }
+
+  const saveRemoteEndpoint = async (): Promise<void> => {
+    setRemotePending(true)
+    try {
+      const saved = await window.api.speech.saveRemoteEndpoint(remoteUrlDraft)
+      setRemoteUrl(saved.url)
+      await refreshModelStates()
+      const health = await window.api.speech.checkRemoteEndpoint()
+      if (pendingRemoteModelId) {
+        updateVoiceSettings({ sttModel: pendingRemoteModelId })
+      }
+      setRemoteDialogOpen(false)
+      setPendingRemoteModelId(null)
+      if (health.ok) {
+        toast.success(
+          translate('settings.voice.remoteEndpoint.savedReachable', 'Remote speech server saved')
+        )
+      } else {
+        toast.warning(
+          translate(
+            'settings.voice.remoteEndpoint.savedUnreachable',
+            'Saved, but the server did not answer /health'
+          ),
+          { description: health.error }
+        )
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, '')
+          : translate(
+              'settings.voice.remoteEndpoint.saveFailed',
+              'Failed to save remote speech server'
+            )
+      )
+    } finally {
+      if (mountedRef.current) {
+        setRemotePending(false)
+      }
+    }
+  }
+
+  const clearRemoteEndpoint = async (): Promise<void> => {
+    setRemotePending(true)
+    try {
+      await window.api.speech.clearRemoteEndpoint()
+      setRemoteUrl(null)
+      updateVoiceSettings({
+        sttModel: selectedModel?.provider === 'remote' ? '' : voiceSettings.sttModel
+      })
+      await refreshModelStates()
+      setRemoteDialogOpen(false)
+      setPendingRemoteModelId(null)
+    } catch {
+      toast.error(
+        translate(
+          'settings.voice.remoteEndpoint.clearFailed',
+          'Failed to remove remote speech server'
+        )
+      )
+    } finally {
+      if (mountedRef.current) {
+        setRemotePending(false)
+      }
+    }
+  }
+
   const clearOpenAiApiKey = async (): Promise<void> => {
     setOpenAiKeyPending(true)
     try {
@@ -229,6 +316,7 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
         modelStates={modelStates}
         onUpdateVoiceSettings={updateVoiceSettings}
         onOpenOpenAiDialog={openOpenAiDialog}
+        onOpenRemoteDialog={openRemoteDialog}
         onRefreshModelStates={refreshModelStates}
       />
 
@@ -250,6 +338,29 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
           />
         </>
       )}
+
+      {(remoteUrl || selectedModel?.provider === 'remote') && (
+        <>
+          <Separator />
+          <RemoteSttEndpointSettingsRow
+            url={remoteUrl}
+            disabled={remotePending}
+            onConfigure={() => openRemoteDialog(null)}
+            onClear={() => void clearRemoteEndpoint()}
+          />
+        </>
+      )}
+
+      <RemoteSttEndpointDialog
+        open={remoteDialogOpen}
+        configured={remoteUrl !== null}
+        urlDraft={remoteUrlDraft}
+        pending={remotePending}
+        onOpenChange={setRemoteDialogOpen}
+        onUrlDraftChange={setRemoteUrlDraft}
+        onSave={() => void saveRemoteEndpoint()}
+        onClear={() => void clearRemoteEndpoint()}
+      />
 
       <OpenAiTranscriptionKeyDialog
         open={openAiDialogOpen}

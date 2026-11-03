@@ -1,4 +1,8 @@
 import { resampleToRate } from './stt-audio-resample'
+import {
+  getRemoteTranscriptionUrl,
+  REMOTE_TRANSCRIPTION_MODEL_BY_ID
+} from './remote-stt-endpoint-store'
 
 export const OPENAI_TRANSCRIPTION_MODEL_BY_ID: Record<string, string> = {
   'openai-gpt-4o-mini-transcribe': 'gpt-4o-mini-transcribe',
@@ -82,7 +86,8 @@ export class OpenAiTranscriptionSession {
 
   constructor(
     private readonly modelId: string,
-    private readonly readApiKey: () => string
+    private readonly readApiKey: () => string,
+    private readonly remoteBaseUrl?: string
   ) {}
 
   cancel(): void {
@@ -108,9 +113,11 @@ export class OpenAiTranscriptionSession {
       return ''
     }
 
-    const apiModel = OPENAI_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
+    const apiModel = this.remoteBaseUrl
+      ? REMOTE_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
+      : OPENAI_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
     if (!apiModel) {
-      throw new Error(`Unknown OpenAI transcription model: ${this.modelId}`)
+      throw new Error(`Unknown transcription model: ${this.modelId}`)
     }
 
     const chunks = this.chunks
@@ -122,14 +129,16 @@ export class OpenAiTranscriptionSession {
     // A named WAV blob satisfies multipart uploads without temporary files.
     form.append('file', new Blob([wav], { type: 'audio/wav' }), 'dictation.wav')
 
-    const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
-      method: 'POST',
-      signal: this.abortController.signal,
-      headers: {
-        Authorization: `Bearer ${this.readApiKey()}`
-      },
-      body: form
-    })
+    // Remote servers get no credentials: the OpenAI key must never leave for another host.
+    const response = await fetch(
+      this.remoteBaseUrl ? getRemoteTranscriptionUrl(this.remoteBaseUrl) : OPENAI_TRANSCRIPTION_URL,
+      {
+        method: 'POST',
+        signal: this.abortController.signal,
+        headers: this.remoteBaseUrl ? {} : { Authorization: `Bearer ${this.readApiKey()}` },
+        body: form
+      }
+    )
 
     const data = (await response.json().catch(() => ({}))) as OpenAiTranscriptionResponse
     if (!response.ok) {
@@ -137,7 +146,9 @@ export class OpenAiTranscriptionSession {
         typeof data.error?.message === 'string'
           ? sanitizeOpenAiTranscriptionErrorMessage(data.error.message)
           : response.statusText
-      throw new Error(`OpenAI transcription failed: ${message}`)
+      throw new Error(
+        `${this.remoteBaseUrl ? 'Remote' : 'OpenAI'} transcription failed: ${message}`
+      )
     }
 
     return parseOpenAiTranscriptionResponse(data)

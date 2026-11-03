@@ -31,9 +31,11 @@ export class RuntimeMobileSpeechCatalog {
     const states = await getSpeechModelManager(store).getModelStates()
     const stateById = new Map(states.map((state) => [state.id, state]))
     // Omit unsupported status variants; older phones could treat them as pickable models.
+    // Remote-server models are configured per desktop; phones only know 'local' | 'openai'.
+    const catalog = SPEECH_MODEL_CATALOG.filter((manifest) => manifest.provider !== 'remote')
     const runnable = hasLocalSpeechRecognizer()
-      ? SPEECH_MODEL_CATALOG
-      : SPEECH_MODEL_CATALOG.filter((manifest) => !isLocalSpeechModel(manifest))
+      ? catalog
+      : catalog.filter((manifest) => !isLocalSpeechModel(manifest))
     const models: RuntimeSpeechModelSummary[] = runnable.map((manifest) => {
       const state = stateById.get(manifest.id)
       return {
