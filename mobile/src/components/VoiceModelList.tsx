@@ -126,8 +126,8 @@ export function VoiceModelList({
                         )}
                       </Pressable>
                     )}
-                    {/* A cloud model has nothing on this computer to delete. */}
-                    {model.provider === 'openai' ? null : (
+                    {/* Cloud and remote-server models have nothing on this computer to delete. */}
+                    {model.provider === 'openai' || model.provider === 'remote' ? null : (
                       <Pressable
                         style={({ pressed }) => [
                           styles.iconButton,

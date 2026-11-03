@@ -144,6 +144,18 @@ export const SPEECH_MODEL_CATALOG: SpeechModelManifest[] = [
     streaming: false
   },
   {
+    id: 'remote-parakeet-tdt-0.6b-v3',
+    label: 'Parakeet TDT v3 (remote server)',
+    description:
+      'Runs on your own OpenAI-compatible transcription server. Requires a server URL; no key.',
+    type: 'remote',
+    provider: 'remote',
+    language: 'multilingual',
+    dictationLanguages: DICTATION_LANGUAGES,
+    sampleRate: 16000,
+    streaming: false
+  },
+  {
     id: 'openai-gpt-4o-transcribe',
     label: 'GPT-4o Transcribe',
     description: 'Cloud transcription with higher accuracy. Requires an OpenAI API key.',

@@ -3,6 +3,7 @@ import { engineDictationLanguage } from '../../shared/dictation-language'
 import { getCatalogModel } from './model-catalog'
 import { OpenAiTranscriptionSession } from './openai-transcription-client'
 import { readOpenAiSpeechApiKey } from './openai-api-key-store'
+import { checkRemoteSttHealth, readRemoteSttBaseUrl } from './remote-stt-endpoint-store'
 import type { SttEventSink } from './stt-service'
 import type { SttSessionState } from './stt-session-state'
 import {
@@ -61,6 +62,19 @@ export async function startSttDictation(
   }
 }
 
+// Fail before the user speaks: the audio is only sent when dictation stops.
+async function requireRemoteSttServer(): Promise<string> {
+  const baseUrl = readRemoteSttBaseUrl()
+  if (!baseUrl) {
+    throw new Error('Remote speech server URL is not configured')
+  }
+  const health = await checkRemoteSttHealth(baseUrl)
+  if (!health.ok) {
+    throw new Error(`Remote speech server is unreachable: ${health.error}`)
+  }
+  return baseUrl
+}
+
 async function startSttSession(
   state: SttSessionState,
   modelId: string,
@@ -75,7 +89,7 @@ async function startSttSession(
   }
   const engineLanguage = engineDictationLanguage(manifest, language)
 
-  if (manifest.provider === 'openai') {
+  if (manifest.provider !== 'local') {
     if (state.worker) {
       const existingWorker = state.worker
       await stopSttDictation(state, owner, { cancelStarting: false })
@@ -85,10 +99,13 @@ async function startSttSession(
     if (modelState.status !== 'ready') {
       throw new Error(`Model not ready: ${modelState.status}`)
     }
+    const remoteBaseUrl =
+      manifest.provider === 'remote' ? await requireRemoteSttServer() : undefined
     state.cloudSession = new OpenAiTranscriptionSession(
       modelId,
       readOpenAiSpeechApiKey,
-      engineLanguage
+      engineLanguage,
+      remoteBaseUrl
     )
     state.activeModelId = modelId
     state.activeHotwordsFilePath = undefined
