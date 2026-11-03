@@ -2,6 +2,11 @@ import type { SpeechModelManifest } from '../../../../../shared/speech-types'
 import { translate } from '@/i18n/i18n'
 
 const DESCRIPTIONS: Record<string, () => string> = {
+  'remote-parakeet-tdt-0.6b-v3': () =>
+    translate(
+      'settings.voice.modelDescriptions.remoteParakeetV3',
+      'Runs on your own OpenAI-compatible transcription server. Requires a server URL; no key.'
+    ),
   'parakeet-tdt-0.6b-v3-int8': () =>
     translate(
       'settings.voice.modelDescriptions.parakeetV3',

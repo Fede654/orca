@@ -4,7 +4,8 @@ import { hostUnionArms, salvagedOptional, salvagingArray } from '../../../src/sh
 
 export const SPEECH_MODEL_PROVIDERS = hostUnionArms<RuntimeSpeechModelSummary['provider']>({
   local: true,
-  openai: true
+  openai: true,
+  remote: true
 })
 export const SPEECH_MODEL_STATUSES = hostUnionArms<RuntimeSpeechModelSummary['status']>({
   ready: true,
