@@ -1132,7 +1132,24 @@
         "whisperTiny": "90+ languages. Lower accuracy than Parakeet but broadest language coverage.",
         "senseVoice": "Chinese, English, Japanese, Korean, and Cantonese with automatic language detection.",
         "gpt4oMiniTranscribe": "Cloud transcription with strong accuracy and low cost. Requires an OpenAI API key.",
-        "gpt4oTranscribe": "Cloud transcription with higher accuracy. Requires an OpenAI API key."
+        "gpt4oTranscribe": "Cloud transcription with higher accuracy. Requires an OpenAI API key.",
+        "remoteParakeetV3": "Runs on your own OpenAI-compatible transcription server. Requires a server URL; no key."
+      },
+      "remoteEndpoint": {
+        "title": "Remote speech server",
+        "dialogDescription": "Dictation audio is sent to this server when the remote model is selected. It must expose POST /v1/audio/transcriptions and GET /health.",
+        "urlLabel": "Server URL",
+        "remove": "Remove",
+        "save": "Save and test",
+        "configured": "Configured",
+        "emptyHint": "Set the URL of an OpenAI-compatible transcription server before selecting the remote model.",
+        "edit": "Edit",
+        "disconnect": "Remove remote speech server",
+        "add": "Set server URL",
+        "savedReachable": "Remote speech server saved",
+        "savedUnreachable": "Saved, but the server did not answer /health",
+        "saveFailed": "Failed to save remote speech server",
+        "clearFailed": "Failed to remove remote speech server"
       }
     },
     "diagnostics": {
