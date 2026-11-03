@@ -59,6 +59,13 @@ describe('dictation setup reply schema', () => {
     expect(model?.status).toBe('extracting')
   })
 
+  it('keeps a ready remote-server row, which the host lists only once its server URL is set', () => {
+    const [model] = dictationSetupSchema.parse(
+      setup({ models: [{ id: 'r', provider: 'remote', status: 'ready', sizeBytes: null }] })
+    ).models
+    expect(model).toMatchObject({ id: 'r', provider: 'remote', status: 'ready', sizeBytes: null })
+  })
+
   it('salvages a row member behind main own guard and keeps the truthy recommended flag', () => {
     const [model] = dictationSetupSchema.parse(
       setup({ models: [{ id: 'a', sizeBytes: 'big', progress: 'half', recommended: 1 }] })
