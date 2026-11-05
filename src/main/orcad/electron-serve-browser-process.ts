@@ -52,6 +52,7 @@ export class ElectronServeBrowserProcess {
   private readonly tabs = new ElectronSidecarTabRegistry()
   private sidecarCapabilities: readonly string[] = []
   private sidecarDataPath: string | null = null
+  private sidecarProfilePersistent = false
 
   constructor(
     private readonly executablePath: string,
@@ -62,8 +63,10 @@ export class ElectronServeBrowserProcess {
     this.sidecarCapabilities = []
     signal?.throwIfAborted()
     await removeLeftoverElectronSidecarProfile(this.orcadUserDataPath)
-    const userDataPath = await createElectronSidecarProfile(this.orcadUserDataPath)
+    const profile = await createElectronSidecarProfile(this.orcadUserDataPath)
+    const userDataPath = profile.path
     this.sidecarDataPath = userDataPath
+    this.sidecarProfilePersistent = profile.persistent
     const port = await reserveLoopbackPort()
     signal?.throwIfAborted()
     const child = spawnProcess({
@@ -162,15 +165,17 @@ export class ElectronServeBrowserProcess {
     const child = this.child
     const sidecarPid = this.metadata?.pid ?? child?.pid ?? null
     const sidecarDataPath = this.sidecarDataPath
+    const sidecarProfilePersistent = this.sidecarProfilePersistent
     this.child = null
     this.metadata = null
     this.sidecarCapabilities = []
     this.sidecarDataPath = null
+    this.sidecarProfilePersistent = false
     this.tabs.clear()
     if (sidecarPid) {
       await stopElectronSidecar(sidecarPid)
     }
-    if (sidecarDataPath) {
+    if (sidecarDataPath && !sidecarProfilePersistent) {
       // Windows helpers may briefly hold this temp profile; cleanup failure must not strand the instance lock.
       await removeTree(sidecarDataPath).catch((error: unknown) =>
         console.warn('[orcad] Electron browser sidecar data was not removed:', error)
