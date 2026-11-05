@@ -1,6 +1,6 @@
 import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, isAbsolute, join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { z } from 'zod'
 import { isSafeOwnedDirectory } from '../../../../shared/secure-storage/owned-private-directory'
@@ -89,7 +89,11 @@ export async function prepareElectronSidecarProfile(
   orcadUserDataPath: string
 ): Promise<ElectronSidecarProfile> {
   await removeLeftoverElectronSidecarProfile(orcadUserDataPath)
-  const profilePath = join(orcadUserDataPath, PERSISTENT_PROFILE_DIRECTORY)
+  const configured = process.env.ORCA_BROWSER_PROFILE_DIR?.trim()
+  if (configured && !isAbsolute(configured)) {
+    throw new Error('ORCA_BROWSER_PROFILE_DIR must be an absolute path')
+  }
+  const profilePath = configured ? resolve(configured) : join(orcadUserDataPath, PERSISTENT_PROFILE_DIRECTORY)
   if (!(await isUsablePersistentProfile(profilePath))) {
     return { path: await createElectronSidecarProfile(orcadUserDataPath), persistent: false }
   }
