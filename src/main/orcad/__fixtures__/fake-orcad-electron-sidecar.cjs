@@ -89,10 +89,11 @@ function handle(method, params) {
   return control().results?.[method] ?? { browserPageId: params.page ?? undefined, method }
 }
 
+// Pid-unique like the real runtime's o-<pid>-<id>.sock, so a kept profile can be reused after a crash.
 const endpoint =
   process.platform === 'win32'
     ? `\\\\.\\pipe\\orcad-fake-sidecar-${process.pid}`
-    : join(userDataDir, 'rpc.sock')
+    : join(userDataDir, `o-${process.pid}-fake.sock`)
 
 const server = createServer((socket) => {
   socket.setEncoding('utf8')
