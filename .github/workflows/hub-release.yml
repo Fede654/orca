@@ -1,0 +1,122 @@
+# Único workflow del fork (FORK.md §7): construye el AppImage x64 de un tag vX.Y.Z-hub.N y lo
+# publica como release de Fede654/orca con el asset orca-linux.AppImage (mismo nombre que
+# upstream; GitHub publica su sha256 y orca-ctl lo verifica). A mano: construye un ref sin
+# publicar y deja el AppImage como artifact.
+name: Hub release
+
+on:
+  push:
+    tags: ['v*-hub.*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Ref a construir sin publicar (rama, tag o sha)
+        required: true
+        default: feat/integration
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hub-release-${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  appimage:
+    if: github.repository == 'Fede654/orca'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      ORCA_BACKGROUND_LAUNCH: '1'
+      ORCA_CI_MAIN_SOURCEMAPS: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          persist-credentials: false
+
+      # Mismas acciones compuestas que el job "package" de upstream (pr.yml).
+      - uses: ./.github/actions/install-node-dependencies
+        with:
+          native-runtime: electron
+          node-version: '24'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
+      - uses: ./.github/actions/install-mobile-dependencies
+
+      - name: Restore native components
+        uses: ./.github/actions/prepare-wayland-clipboard
+        with:
+          build: 'false'
+      - name: Build native components
+        run: bash .github/actions/prepare-wayland-clipboard/build-or-validate.sh
+
+      - name: Build package inputs
+        run: |
+          pnpm run build:cli
+          pnpm run build:wsl-guest
+          pnpm run build:electron-vite
+          pnpm run build:web-from-renderer
+          pnpm run build:mobile-web
+
+      # El servidor headless (orcad) corre desde este template: sin él la build no sirve al hub.
+      - name: Build the orcad server template (linux-x64-glibc)
+        run: |
+          # Por script de pnpm y no por ruta: el script cambió de carpeta entre releases.
+          pnpm run build:orcad
+          pnpm run build:orcad-template --targets linux-x64-glibc
+
+      - name: Package AppImage
+        env:
+          ORCA_REUSE_PREPARED_NATIVE_RUNTIME: '1'
+        run: pnpm exec electron-builder --config config/electron-builder.config.cjs --linux AppImage --x64 --publish never
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          app="$GITHUB_WORKSPACE/dist/orca-linux.AppImage"
+          test -s "$app"
+          cd "$RUNNER_TEMP"
+          "$app" --appimage-extract >/dev/null
+          root="$RUNNER_TEMP/squashfs-root"
+          test -x "$root/AppRun"
+          test -x "$root/orca-ide"
+          server="$(find "$root/resources/orcad-template" -name orcad-server.js | head -1)"
+          test -n "$server" || { echo "falta orcad-server.js en el template"; exit 1; }
+          # Cada feature parametrizado de la serie tiene que estar en el servidor empaquetado.
+          if [ -f "$GITHUB_WORKSPACE/fork/series" ] && grep -q persistent-browser-profile "$GITHUB_WORKSPACE/fork/series"; then
+            grep -q ORCA_BROWSER_PROFILE_DIR "$server" || { echo "ORCA_BROWSER_PROFILE_DIR no está en $server"; exit 1; }
+          fi
+          sha256sum "$app" | tee "$GITHUB_WORKSPACE/dist/orca-linux.AppImage.sha256"
+
+      - name: Keep the AppImage (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: orca-linux-AppImage
+          path: |
+            dist/orca-linux.AppImage
+            dist/orca-linux.AppImage.sha256
+          retention-days: 7
+
+      - name: Publish release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 "https://github.com/${GITHUB_REPOSITORY}.git" "+refs/tags/${TAG}:refs/tags/${TAG}"
+          {
+            echo "Build de hub del fork: $(git for-each-ref "refs/tags/${TAG}" --format='%(contents:subject)')"
+            echo
+            echo '```'
+            git for-each-ref "refs/tags/${TAG}" --format='%(contents:body)'
+            echo '```'
+            echo
+            echo "Doctrina: FORK.md. Instalar en un hub: ORCA_REPO=${GITHUB_REPOSITORY} orca-ctl update ${TAG#v}"
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$TAG" dist/orca-linux.AppImage \
+            --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --latest
