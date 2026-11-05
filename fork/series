@@ -1,0 +1,9 @@
+# Serie de integración del fork (ver FORK.md §5). Una línea por entrada, campos separados por TAB:
+# <tipo>	<ref>	<upstream>	<nota>
+# tipo: topic <rama>[@<rama adaptada al tag>] | backport <sha de upstream main>[@<rama adaptada al tag>].
+# La adaptada se usa solo si está basada en el tag que se integra; si no, vale la rama de tema. El orden importa: fork/tooling va primero.
+topic	fork/tooling	fork-only	doctrina, integrate.sh, actions-guard.sh, hub-release.yml
+topic	fork/partial-orcad-template	fork-only	ORCA_ORCAD_TEMPLATE_TARGETS: el AppImage del hub lleva y verifica solo el template linux-x64
+topic	feat/persistent-browser-profile	proponer	ORCA_BROWSER_PROFILE_DIR: perfil persistente del sidecar Electron en headless
+topic	feat/stt-remote-endpoint@adapt/stt-remote-endpoint	fork-only	STT por servidor remoto compatible con OpenAI (Settings > Voice); adaptado a v1.4.251 (sin #39173/#38905)
+topic	fix/markdown-footnotes	proponer	footnotes GFM en el editor Markdown
