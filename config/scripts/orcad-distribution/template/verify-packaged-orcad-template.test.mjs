@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -12,7 +13,10 @@ import {
 import { writeOrcadTemplateTestFixture } from './orcad-template-test-fixture.mjs'
 
 const require = createRequire(import.meta.url)
-const { verifyPackagedOrcadTemplate } = require('./verify-packaged-orcad-template.cjs')
+const {
+  packagedOrcadTemplateTargets,
+  verifyPackagedOrcadTemplate
+} = require('./verify-packaged-orcad-template.cjs')
 const roots = []
 
 async function createFixture(options) {
@@ -60,4 +64,41 @@ describe('verifyPackagedOrcadTemplate', () => {
   })
 
   // Desktop must carry deployment template on every OS: SSH/managed deploys materialize target slot from resourcesPath (D2).
+})
+
+describe('ORCA_ORCAD_TEMPLATE_TARGETS', () => {
+  async function linuxOnlyFixture() {
+    const fixture = await createFixture()
+    const manifestPath = join(fixture.templateDir, ORCAD_TEMPLATE_MANIFEST_FILENAME)
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+    for (const target of Object.keys(manifest.targets)) {
+      if (target !== 'linux-x64-glibc') {
+        delete manifest.targets[target]
+        rmSync(join(fixture.templateDir, ORCAD_TEMPLATE_TARGETS_DIR, target), { recursive: true })
+      }
+    }
+    await writeFile(manifestPath, JSON.stringify(manifest))
+    return fixture
+  }
+
+  it('keeps every target when unset', () => {
+    expect(packagedOrcadTemplateTargets({})).toContain('darwin-arm64')
+    expect(packagedOrcadTemplateTargets({ ORCA_ORCAD_TEMPLATE_TARGETS: ' ' })).toContain(
+      'win32-x64'
+    )
+  })
+
+  it('verifies a template narrowed to the listed targets', async () => {
+    const fixture = await linuxOnlyFixture()
+    const targets = packagedOrcadTemplateTargets({ ORCA_ORCAD_TEMPLATE_TARGETS: 'linux-x64-glibc' })
+
+    expect(() => verifyPackagedOrcadTemplate(fixture.root, targets)).not.toThrow()
+    expect(() => verifyPackagedOrcadTemplate(fixture.root)).toThrow('target manifest inventory')
+  })
+
+  it('rejects an unknown target', () => {
+    expect(() =>
+      packagedOrcadTemplateTargets({ ORCA_ORCAD_TEMPLATE_TARGETS: 'linux-x64-glibc,beos-x86' })
+    ).toThrow('unknown targets: beos-x86')
+  })
 })
