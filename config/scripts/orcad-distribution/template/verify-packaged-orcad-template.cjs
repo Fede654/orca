@@ -156,8 +156,28 @@ function verifyTarget(resourcesDir, templateDir, target, value, schemaVersion) {
   requireExactNames(listFiles(targetDir), inventory, `${target} file inventory`)
 }
 
-/** `targets` narrows the inventory for a CI-only partial template; packaging checks them all. */
-function verifyPackagedOrcadTemplate(resourcesDir, targets = ORCAD_TEMPLATE_TARGETS) {
+const PACKAGED_TARGETS_ENV = 'ORCA_ORCAD_TEMPLATE_TARGETS'
+
+// Why: a build for one platform (a single-arch Linux server package) can ship only its own
+// target; the runtime already rejects absent targets per host. Unset keeps every target.
+function packagedOrcadTemplateTargets(env = process.env) {
+  const raw = env[PACKAGED_TARGETS_ENV]?.trim()
+  if (!raw) {
+    return ORCAD_TEMPLATE_TARGETS
+  }
+  const requested = [...new Set(raw.split(',').map((target) => target.trim()))]
+  const unknown = requested.filter((target) => !ORCAD_TEMPLATE_TARGETS.includes(target))
+  if (unknown.length > 0) {
+    throw new Error(
+      `[verify-packaged-orcad-template] ${PACKAGED_TARGETS_ENV} names unknown targets: ${unknown.join(',')}`
+    )
+  }
+  return requested
+}
+
+/** `targets` narrows the inventory for a CI-only partial template; packaging checks them all
+ *  unless ORCA_ORCAD_TEMPLATE_TARGETS narrows it. */
+function verifyPackagedOrcadTemplate(resourcesDir, targets = packagedOrcadTemplateTargets()) {
   const templateDir = join(resourcesDir, 'orcad-template')
   const manifest = requireRecord(readManifest(templateDir), 'manifest')
   if (![TEMPLATE_SCHEMA_VERSION, 4].includes(manifest.schemaVersion)) {
@@ -204,4 +224,8 @@ function verifyPackagedOrcadTemplate(resourcesDir, targets = ORCAD_TEMPLATE_TARG
   )
 }
 
-module.exports = { TEMPLATE_SCHEMA_VERSION, verifyPackagedOrcadTemplate }
+module.exports = {
+  TEMPLATE_SCHEMA_VERSION,
+  packagedOrcadTemplateTargets,
+  verifyPackagedOrcadTemplate
+}
