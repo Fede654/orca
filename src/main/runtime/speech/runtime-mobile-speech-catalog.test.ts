@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { SPEECH_MODEL_PIN_ENV } from '../../speech/speech-model-pin'
 import { getDefaultVoiceSettings } from '../../../shared/constants'
-import type { SpeechModelState } from '../../../shared/speech-types'
+import type { SpeechModelState, VoiceSettings } from '../../../shared/speech-types'
 import { SPEECH_MODEL_CATALOG } from '../../speech/model-catalog'
 import {
   setSpeechServiceFactories,
@@ -13,6 +14,8 @@ vi.mock('../../speech/stt-worker-paths', () => ({ hasLocalSpeechRecognizer: () =
 
 afterEach(() => {
   setSpeechServiceFactories(null)
+  vi.unstubAllEnvs()
+  vi.restoreAllMocks()
 })
 
 const REMOTE_IDS = SPEECH_MODEL_CATALOG.filter((m) => m.provider === 'remote').map((m) => m.id)
@@ -24,9 +27,12 @@ function host(states: SpeechModelState[] = []): RuntimeStore {
   }
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: these tests call only the members stubbed above.
   setSpeechServiceFactories(factories as unknown as SpeechServiceFactories)
+  let voice: VoiceSettings = { ...getDefaultVoiceSettings(), sttModel: 'whisper-tiny' }
   const store = {
-    getSettings: () => ({ voice: getDefaultVoiceSettings() }),
-    updateSettings: vi.fn()
+    getSettings: () => ({ voice }),
+    updateSettings: (updates: { voice: VoiceSettings }) => {
+      voice = updates.voice
+    }
   }
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the catalog reads only getSettings/updateSettings.
   return store as unknown as RuntimeStore
@@ -57,5 +63,39 @@ describe('RuntimeMobileSpeechCatalog remote-server models', () => {
     const catalog = new RuntimeMobileSpeechCatalog(() => store)
     await expect(catalog.download(REMOTE_IDS[0])).rejects.toThrow('voice_model_not_downloadable')
     await expect(catalog.delete(REMOTE_IDS[0])).rejects.toThrow('voice_model_not_deletable')
+  })
+})
+
+describe('RuntimeMobileSpeechCatalog with a pinned host model', () => {
+  const PINNED = 'openai-gpt-4o-mini-transcribe'
+
+  it('reports the pin as the selected model and keeps a configured remote row', async () => {
+    vi.stubEnv(SPEECH_MODEL_PIN_ENV, PINNED)
+    const store = host(REMOTE_IDS.map((id) => ({ id, status: 'ready' as const })))
+    const setup = await new RuntimeMobileSpeechCatalog(() => store).list()
+    expect(setup.selectedModelId).toBe(PINNED)
+    expect(setup.models.some((m) => REMOTE_IDS.includes(m.id))).toBe(true)
+  })
+
+  it('refuses another model, accepts the pin, and still changes enabled and mode', async () => {
+    vi.stubEnv(SPEECH_MODEL_PIN_ENV, PINNED)
+    const store = host()
+    const catalog = new RuntimeMobileSpeechCatalog(() => store)
+    await expect(catalog.configure({ modelId: 'whisper-tiny' })).rejects.toThrow(
+      'voice_model_pinned'
+    )
+    const setup = await catalog.configure({ modelId: PINNED, enabled: true, dictationMode: 'hold' })
+    expect(setup).toMatchObject({ selectedModelId: PINNED, enabled: true, dictationMode: 'hold' })
+    // The pin is never written into settings.
+    expect(store.getSettings().voice?.sttModel).toBe('whisper-tiny')
+  })
+
+  it('fails closed on an invalid pin and still shows it', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.stubEnv(SPEECH_MODEL_PIN_ENV, 'no-such-model')
+    const store = host()
+    const catalog = new RuntimeMobileSpeechCatalog(() => store)
+    await expect(catalog.configure({ enabled: true })).rejects.toThrow('voice_model_pin_invalid')
+    expect((await catalog.list()).selectedModelId).toBe('no-such-model')
   })
 })
