@@ -6,6 +6,19 @@ import {
 import { getSpeechModelDownloadMetadata } from './model-download-catalog'
 
 export const SPEECH_MODEL_CATALOG: SpeechModelManifest[] = [
+  // Fork: the self-hosted server goes first, so desktop and phone pickers lead with it.
+  {
+    id: 'remote-parakeet-tdt-0.6b-v3',
+    label: 'Parakeet TDT v3 (remote server)',
+    description:
+      'Runs on your own OpenAI-compatible transcription server. Requires a server URL; no key.',
+    type: 'remote',
+    provider: 'remote',
+    language: 'multilingual',
+    dictationLanguages: DICTATION_LANGUAGES,
+    sampleRate: 16000,
+    streaming: false
+  },
   {
     id: 'parakeet-tdt-0.6b-v3-int8',
     label: 'Parakeet TDT v3',
@@ -138,18 +151,6 @@ export const SPEECH_MODEL_CATALOG: SpeechModelManifest[] = [
       'Cloud transcription with strong accuracy and low cost. Requires an OpenAI API key.',
     type: 'openai',
     provider: 'openai',
-    language: 'multilingual',
-    dictationLanguages: DICTATION_LANGUAGES,
-    sampleRate: 16000,
-    streaming: false
-  },
-  {
-    id: 'remote-parakeet-tdt-0.6b-v3',
-    label: 'Parakeet TDT v3 (remote server)',
-    description:
-      'Runs on your own OpenAI-compatible transcription server. Requires a server URL; no key.',
-    type: 'remote',
-    provider: 'remote',
     language: 'multilingual',
     dictationLanguages: DICTATION_LANGUAGES,
     sampleRate: 16000,

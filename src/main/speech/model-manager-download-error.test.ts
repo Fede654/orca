@@ -27,7 +27,7 @@ describe('ModelManager download failures', () => {
   it('rejects failed model downloads so the caller can surface the error', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'orca-model-manager-'))
     try {
-      const manifest = SPEECH_MODEL_CATALOG[0]
+      const manifest = SPEECH_MODEL_CATALOG.find((model) => model.provider === 'local')!
       const errorHandlers: ((err: Error) => void)[] = []
       const request = {
         abort: vi.fn(() => request),
