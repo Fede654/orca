@@ -11,6 +11,10 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas de archivo son 
   propio compatible con la API de OpenAI (`POST <url>/v1/audio/transcriptions`, health en
   `GET <url>/health`). No usa clave. La URL vive en `~/.orca/remote-stt-endpoint.json` de
   **cada máquina**.
+  - Es el **primero del catálogo**, así que encabeza la lista en Settings > Voice y en el
+    teléfono. Los dos recorren el catálogo en orden.
+  - Este repo es público: las direcciones de nuestros servidores van en los repos privados
+    de la infra, no acá. Los ejemplos usan `192.0.2.0/24` (RFC 5737) o nombres genéricos.
   - Se carga desde Settings > Voice en el escritorio, o con `orca-ctl speech remote <url>`
     en un hub, que no tiene interfaz.
 - **El remoto usa el cliente de nube de upstream** (`openai-transcription-client.ts`).
@@ -101,7 +105,7 @@ Operación (orca-ctl ≥ 1.6.0, `tools/pve/README-orca-ctl.md` en `orca-migratio
 
 ```sh
 orca-ctl speech                                   # release, modelo fijado, servidor y /health
-orca-ctl speech remote 10.0.0.5:8000              # URL del servidor (sin reinicio)
+orca-ctl speech remote 192.0.2.10:8000             # URL del servidor (sin reinicio)
 orca-ctl speech pin remote-parakeet-tdt-0.6b-v3   # drop-in 71-speech-model.conf
 orca-ctl restart                                  # el pin rige desde el reinicio
 orca-ctl speech unpin                             # vuelve a upstream (con reinicio)
