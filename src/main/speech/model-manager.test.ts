@@ -214,7 +214,7 @@ describe('ModelManager', () => {
   it('aborts an in-flight model download request when cancelled', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'orca-model-manager-'))
     try {
-      const manifest = SPEECH_MODEL_CATALOG[0]
+      const manifest = SPEECH_MODEL_CATALOG.find((model) => model.provider === 'local')!
       const errorHandlers: ((err: Error) => void)[] = []
       const responseHandlers: ((response: unknown) => void)[] = []
       const redirectHandlers: ((
