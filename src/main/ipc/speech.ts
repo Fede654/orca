@@ -12,6 +12,7 @@ import {
   hasOpenAiSpeechApiKey
 } from '../speech/openai-api-key-store'
 import { saveVerifiedOpenAiSpeechApiKey } from '../speech/openai-api-key-verification'
+import { resolveDictationModelId } from '../speech/speech-model-pin'
 import {
   checkRemoteSttHealth,
   clearRemoteSttEndpoint,
@@ -170,6 +171,8 @@ export function registerSpeechHandlers(store: Store): void {
       rendererLifetime.signal.addEventListener('abort', cleanupOnRendererGone, { once: true })
 
       try {
+        // A pinned host model refuses any other model the renderer asks for.
+        const dictationModelId = resolveDictationModelId(modelId) ?? modelId
         // macOS can return silent microphone streams without TCC permission; request it before capture.
         if (process.platform === 'darwin') {
           const micStatus = systemPreferences.getMediaAccessStatus('microphone')
@@ -199,7 +202,7 @@ export function registerSpeechHandlers(store: Store): void {
         }
 
         await getSpeechSttService(store).startDictation(
-          modelId,
+          dictationModelId,
           (msg) => {
             if (msg.type === 'ready') {
               sessionReady = true
