@@ -44,6 +44,34 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas de archivo son 
     - la espera al parar bajó de 9,6 s a 1,9 s;
     - cada tramo aparece unos 2 s después de su pausa. Casi todo es red: el servidor
       tarda unos 50 ms, la ida y vuelta por ZeroTier 280 ms y la subida del WAV el resto.
+- **Los tramos viajan en Ogg Opus a 24 kbps**, una décima parte de los bytes del WAV.
+  - **Medición, mismo dictado:** cada request bajó de 1,8–3,6 s a 1,1–1,5 s y la espera
+    al parar a 1,1 s. Las transcripciones salieron idénticas, y el servidor decodifica
+    cualquier formato con ffmpeg.
+  - **Librería:** se eligió `libopus-wasm` 0.4.1 frente a `@audio/encode-opus`:
+    - codifica 2 a 4 veces más rápido y acepta 16 kHz sin remuestrear;
+    - deja codificar cada cuadro de 20 ms del segmentador a medida que llega, así que al
+      cerrar un tramo solo falta envolverlo;
+    - tiene alrededor de un millón de descargas por mes.
+
+    Es MIT, con libopus 1.6.1 (BSD), un solo módulo con el WASM embebido y sin scripts de
+    instalación. El contenedor Ogg lo escribe el fork (`remote-stt-ogg-opus.ts`,
+    RFC 7845).
+  - **Un stream por tramo:** la librería no tiene un reset síncrono, así que se tiene
+    siempre un codificador de repuesto creado de antemano. Si el repuesto no llegó a
+    estar listo, el tramo siguiente continúa el stream anterior.
+  - **Carga diferida:** la librería se carga con el primer dictado remoto. Si no carga,
+    los tramos van en WAV, como antes.
+  - **Empaquetado:** Orca solo lleva a la app una lista blanca de `node_modules`, así que
+    la librería va en el bundle del proceso principal (`BUNDLED_MAIN_DEPENDENCIES` en
+    `electron.vite.config.ts`), como un chunk aparte. orcad la incluye con el ajuste de
+    `import.meta.url` que ya trae su build. El smoke check del release verifica que esté
+    en `app.asar` y en `orcad-server.js`.
+  - **Mantenimiento:** el tema toca `package.json`, `pnpm-lock.yaml` y
+    `electron.vite.config.ts`. Si el lockfile choca en un rebase, se toma el de upstream y
+    se corre `pnpm install --lockfile-only`. Después se verifica que el hash de
+    integridad de `libopus-wasm@0.4.1` siga siendo
+    `sha512-dt2u6KyBe1IONzZA2Q9TXQbmLsZ6l1vLqgt4n9XC/sE70BegLgwC/hcbZp41aJgURAqalYdnPg0wGSI2IwHyvA==`.
 - **`/health` antes de cada dictado.** Sin URL o con el servidor caído, el dictado no
   arranca y el error lo dice.
 - **Los teléfonos ven el remoto en su lista solo si la URL está configurada.** Aparece como
