@@ -1,7 +1,7 @@
 # Único workflow del fork (FORK.md §7): construye el AppImage x64 de un tag vX.Y.Z-hub.N y lo
 # publica como release de Fede654/orca con el asset orca-linux.AppImage (mismo nombre que
-# upstream; GitHub publica su sha256 y orca-ctl lo verifica). A mano: construye un ref sin
-# publicar y deja el AppImage como artifact.
+# upstream; GitHub publica su sha256 y orca-ctl lo verifica) y latest-linux.yml, el manifiesto
+# del updater del escritorio. A mano: construye un ref sin publicar y deja ambos como artifact.
 name: Hub release
 
 on:
@@ -13,6 +13,10 @@ on:
         description: Ref a construir sin publicar (rama, tag o sha)
         required: true
         default: feat/integration
+      fork_version:
+        description: Versión X.Y.Z-hub.N a sellar (para probar el updater); vacío = sin sello
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -56,6 +60,30 @@ jobs:
       - name: Build native components
         run: bash .github/actions/prepare-wayland-clipboard/build-or-validate.sh
 
+      # Sello del fork (tema fork/release-identity, src/shared/fork-build.ts): About muestra
+      # X.Y.Z-hub.N y el updater sigue las releases de este repo. Sin sello, como upstream.
+      - name: Stamp the fork build
+        env:
+          FORK_VERSION_IN: ${{ github.event_name == 'push' && github.ref_name || inputs.fork_version }}
+        run: |
+          set -euo pipefail
+          stamp=src/shared/fork-build-stamp.ts
+          if [ ! -f "$stamp" ]; then echo "sin el tema fork/release-identity: build sin sello"; exit 0; fi
+          v="${FORK_VERSION_IN#v}"
+          if [ -z "$v" ]; then echo "sin versión de fork: build sin sello"; exit 0; fi
+          [[ "$v" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-hub\.[0-9]+$ ]] || { echo "versión de fork inválida: $v"; exit 1; }
+          base="$(node -p "require('./package.json').version")"
+          [ "${BASH_REMATCH[1]}" = "$base" ] || { echo "$v no es una build de $base (package.json)"; exit 1; }
+          [[ "$GITHUB_REPOSITORY" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || { echo "repo inválido: $GITHUB_REPOSITORY"; exit 1; }
+          printf '%s\n' \
+            "// Sellado por hub-release.yml para $v ($GITHUB_SHA)." \
+            "export const FORK_BUILD_STAMP: { version: string; repo: string } | null = {" \
+            "  version: '$v'," \
+            "  repo: '$GITHUB_REPOSITORY'" \
+            "}" > "$stamp"
+          cat "$stamp"
+          echo "FORK_VERSION=$v" >> "$GITHUB_ENV"
+
       - name: Build package inputs
         run: |
           pnpm run build:cli
@@ -75,6 +103,34 @@ jobs:
         env:
           ORCA_REUSE_PREPARED_NATIVE_RUNTIME: '1'
         run: pnpm exec electron-builder --config config/electron-builder.config.cjs --linux AppImage --x64 --publish never
+
+      # El manifiesto de electron-builder lleva la versión de la app (X.Y.Z); el updater del
+      # fork compara por el tag, así que va con X.Y.Z-hub.N. Solo el AppImage, verificado.
+      - name: Fork update manifest
+        if: env.FORK_VERSION != ''
+        run: |
+          set -euo pipefail
+          m=dist/latest-linux.yml
+          test -s "$m" || { echo "electron-builder no generó $m"; ls dist; exit 1; }
+          python3 - "$m" dist/orca-linux.AppImage "$FORK_VERSION" <<'PY'
+          import base64, hashlib, re, sys
+          path, app, version = sys.argv[1:]
+          text = open(path).read()
+          digest = hashlib.sha512()
+          with open(app, 'rb') as f:
+              for block in iter(lambda: f.read(1 << 20), b''):
+                  digest.update(block)
+          sha = base64.b64encode(digest.digest()).decode()
+          assert re.search(r'^path: orca-linux\.AppImage$', text, re.M), 'path no es orca-linux.AppImage'
+          urls = re.findall(r'^\s*- url: (.+)$', text, re.M)
+          assert urls == ['orca-linux.AppImage'], f'archivos inesperados: {urls}'
+          shas = set(re.findall(r'^\s*sha512: (.+)$', text, re.M))
+          assert shas == {sha}, f'sha512 no coincide con el AppImage: {shas} != {sha}'
+          text, n = re.subn(r'^version: .*$', f'version: {version}', text, count=1, flags=re.M)
+          assert n == 1, 'sin línea version'
+          open(path, 'w').write(text)
+          print(text)
+          PY
 
       - name: Smoke check
         run: |
@@ -99,6 +155,13 @@ jobs:
               || { echo "libopus-wasm no está en la app (app.asar ni app.asar.unpacked/out/main)"; exit 1; }
             grep -q _oc_encode_float "$server" || { echo "libopus-wasm no está en $server"; exit 1; }
           fi
+          # Build sellada: el sello está en la app (main y renderer).
+          if [ -n "${FORK_VERSION:-}" ]; then
+            grep -rqsF -e "\"$FORK_VERSION\"" -e "'$FORK_VERSION'" \
+              "$root/resources/app.asar" "$root/resources/app.asar.unpacked/out" \
+              || { echo "el sello $FORK_VERSION no está en la app"; exit 1; }
+            grep -q "^version: $FORK_VERSION$" "$GITHUB_WORKSPACE/dist/latest-linux.yml"
+          fi
           grep -q '"linux-x64-glibc"' "$root/resources/orcad-template/orcad-template.json" \
             || { echo "el template no declara linux-x64-glibc"; exit 1; }
           sha256sum "$app" | tee "$GITHUB_WORKSPACE/dist/orca-linux.AppImage.sha256"
@@ -111,6 +174,8 @@ jobs:
           path: |
             dist/orca-linux.AppImage
             dist/orca-linux.AppImage.sha256
+            dist/latest-linux.yml
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Publish release
@@ -130,5 +195,8 @@ jobs:
             echo
             echo "Doctrina: FORK.md. Instalar en un hub: ORCA_REPO=${GITHUB_REPOSITORY} orca-ctl update ${TAG#v}"
           } > "$RUNNER_TEMP/notes.md"
-          gh release create "$TAG" dist/orca-linux.AppImage \
+          assets=(dist/orca-linux.AppImage)
+          # Con el tema fork/release-identity la build va sellada y lleva el manifiesto del updater.
+          if [ -n "${FORK_VERSION:-}" ]; then assets+=(dist/latest-linux.yml); fi
+          gh release create "$TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --latest
