@@ -1,4 +1,5 @@
 import { compareAppVersions, isValidAppVersion } from './app-version'
+import { getAppReleaseRepo, isForkReleaseVersion } from './fork-build'
 
 export type ReleaseChannel = 'stable' | 'rc' | 'hourly' | 'daily' | 'adhoc'
 
@@ -177,7 +178,11 @@ export function getVersionChannel(version: string): ReleaseChannel | null {
 /** Dev tags need their publishing repo or links 404. Missing versions use the releases list; latest can fail during GitHub API degradation. */
 export function getReleaseNotesUrlForVersion(version: string | null): string {
   const channel = version ? getVersionChannel(version) : null
-  const repo = channel ? getReleaseRepoForChannel(channel) : MAIN_RELEASE_REPO
+  // Fork: fork tags (X.Y.Z-hub.N) and the releases list belong to the fork's repo.
+  const repo =
+    channel && !isForkReleaseVersion(version ?? '')
+      ? getReleaseRepoForChannel(channel)
+      : getAppReleaseRepo()
   return version
     ? `https://github.com/${repo}/releases/tag/v${normalizeTagToVersion(version)}`
     : `https://github.com/${repo}/releases`
