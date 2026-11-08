@@ -3,6 +3,7 @@ import {
   getRemoteTranscriptionUrl,
   REMOTE_TRANSCRIPTION_MODEL_BY_ID
 } from './remote-stt-endpoint-store'
+import { RemoteSttSegmenter } from './remote-stt-segmenter'
 
 export const OPENAI_TRANSCRIPTION_MODEL_BY_ID: Record<string, string> = {
   'openai-gpt-4o-mini-transcribe': 'gpt-4o-mini-transcribe',
@@ -87,18 +88,34 @@ function parseOpenAiTranscriptionResponse(data: OpenAiTranscriptionResponse): st
   )
 }
 
+/** Fork: delivery of remote segments transcribed while dictation is still running. */
+export type RemoteSegmentHandlers = {
+  onSegment: (text: string) => void
+  onError: (message: string) => void
+}
+
 export class OpenAiTranscriptionSession {
   private chunks: Float32Array[] = []
   private audioSamples = 0
   private readonly abortController = new AbortController()
+  // Remote only: segments upload one at a time, in order, while the user talks.
+  private readonly segmenter: RemoteSttSegmenter | null
+  private segmentQueue: Promise<void> = Promise.resolve()
+  private segmentFailed = false
 
   constructor(
     private readonly modelId: string,
     private readonly readApiKey: () => string,
     private readonly language?: string,
     // Set for the remote provider: an OpenAI-compatible server reached without credentials.
-    private readonly remoteBaseUrl?: string
-  ) {}
+    private readonly remoteBaseUrl?: string,
+    private readonly segmentHandlers?: RemoteSegmentHandlers
+  ) {
+    this.segmenter =
+      remoteBaseUrl && segmentHandlers
+        ? new RemoteSttSegmenter(CLOUD_TRANSCRIPTION_SAMPLE_RATE)
+        : null
+  }
 
   cancel(): void {
     this.chunks = []
@@ -115,15 +132,72 @@ export class OpenAiTranscriptionSession {
     const normalized = resampleToRate(samples, sampleRate, CLOUD_TRANSCRIPTION_SAMPLE_RATE)
     const kept = normalized.slice(0, room)
     this.audioSamples += kept.length
-    this.chunks.push(kept)
+    if (this.segmenter) {
+      if (!this.segmentFailed) {
+        for (const segment of this.segmenter.push(kept)) {
+          this.queueSegment(segment)
+        }
+      }
+    } else {
+      this.chunks.push(kept)
+    }
     return this.audioSamples === MAX_CLOUD_AUDIO_SAMPLES
   }
 
   async finish(): Promise<string> {
+    if (this.segmenter) {
+      return this.finishSegments(this.segmenter)
+    }
     if (this.chunks.length === 0) {
       return ''
     }
+    const chunks = this.chunks
+    this.chunks = []
+    return this.transcribe(chunks)
+  }
 
+  // Earlier segments were delivered as they finished; the tail is returned like a single upload.
+  private async finishSegments(segmenter: RemoteSttSegmenter): Promise<string> {
+    const tail = segmenter.flush()
+    await this.segmentQueue
+    if (this.segmentFailed || !tail) {
+      return ''
+    }
+    return this.transcribeWithRetry(tail)
+  }
+
+  private queueSegment(segment: Float32Array): void {
+    this.segmentQueue = this.segmentQueue.then(async () => {
+      if (this.segmentFailed || this.abortController.signal.aborted) {
+        return
+      }
+      try {
+        const text = await this.transcribeWithRetry(segment)
+        if (text && !this.abortController.signal.aborted) {
+          this.segmentHandlers?.onSegment(text)
+        }
+      } catch (error) {
+        // The text already inserted stays; the rest of this dictation is dropped and reported once.
+        this.segmentFailed = true
+        if (!this.abortController.signal.aborted) {
+          this.segmentHandlers?.onError(error instanceof Error ? error.message : String(error))
+        }
+      }
+    })
+  }
+
+  private async transcribeWithRetry(segment: Float32Array): Promise<string> {
+    try {
+      return await this.transcribe([segment])
+    } catch (error) {
+      if (this.abortController.signal.aborted) {
+        throw error
+      }
+      return this.transcribe([segment])
+    }
+  }
+
+  private async transcribe(chunks: Float32Array[]): Promise<string> {
     const apiModel = this.remoteBaseUrl
       ? REMOTE_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
       : OPENAI_TRANSCRIPTION_MODEL_BY_ID[this.modelId]
@@ -131,8 +205,6 @@ export class OpenAiTranscriptionSession {
       throw new Error(`Unknown transcription model: ${this.modelId}`)
     }
 
-    const chunks = this.chunks
-    this.chunks = []
     const wav = encodePcm16Wav(chunks, CLOUD_TRANSCRIPTION_SAMPLE_RATE)
     const form = new FormData()
     form.append('model', apiModel)

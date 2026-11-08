@@ -1,7 +1,10 @@
 import { spawnWorkerThread } from '../worker-threads/worker-thread-spawn'
 import { engineDictationLanguage } from '../../shared/dictation-language'
 import { getCatalogModel } from './model-catalog'
-import { OpenAiTranscriptionSession } from './openai-transcription-client'
+import {
+  OpenAiTranscriptionSession,
+  type RemoteSegmentHandlers
+} from './openai-transcription-client'
 import { readOpenAiSpeechApiKey } from './openai-api-key-store'
 import { checkRemoteSttHealth, readRemoteSttBaseUrl } from './remote-stt-endpoint-store'
 import type { SttEventSink } from './stt-service'
@@ -62,7 +65,15 @@ export async function startSttDictation(
   }
 }
 
-// Fail before the user speaks: the audio is only sent when dictation stops.
+// Fork: remote segments reach the client as finals while the user is still talking.
+function remoteSegmentHandlers(sink: SttEventSink): RemoteSegmentHandlers {
+  return {
+    onSegment: (text) => sink({ type: 'final', text }),
+    onError: (error) => sink({ type: 'error', error })
+  }
+}
+
+// Fail before the user speaks: the server is checked before the first segment is sent.
 async function requireRemoteSttServer(): Promise<string> {
   const baseUrl = readRemoteSttBaseUrl()
   if (!baseUrl) {
@@ -105,7 +116,8 @@ async function startSttSession(
       modelId,
       readOpenAiSpeechApiKey,
       engineLanguage,
-      remoteBaseUrl
+      remoteBaseUrl,
+      remoteSegmentHandlers(sink)
     )
     state.activeModelId = modelId
     state.activeHotwordsFilePath = undefined
