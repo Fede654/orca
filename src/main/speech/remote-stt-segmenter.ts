@@ -1,5 +1,6 @@
 // Fork: cuts remote dictation into segments at speaker pauses so each one is transcribed
 // while the user keeps talking, instead of one upload when dictation stops.
+import type { RemoteSttFrameEncoder } from './remote-stt-opus-encoder'
 
 /** Silence that closes a segment once it is long enough. Tuned for slow speakers. */
 export const SEGMENT_PAUSE_MS = 800
@@ -17,6 +18,12 @@ const SPEECH_OVER_NOISE = 3
 const MIN_SPEECH_MS = 200
 const NOISE_FLOOR_RISE = 0.002
 
+export type RemoteSttSegment = {
+  samples: Float32Array
+  /** One Opus packet per frame when an encoder is attached; null means upload WAV. */
+  packets: Uint8Array[] | null
+}
+
 export class RemoteSttSegmenter {
   private readonly frameSamples: number
   private readonly pauseFrames: number
@@ -27,11 +34,15 @@ export class RemoteSttSegmenter {
   private pending = new Float32Array(0)
   private frames: Float32Array[] = []
   private frameRms: number[] = []
+  private packets: Uint8Array[] = []
   private trailingSilentFrames = 0
   private noiseFloor = Number.POSITIVE_INFINITY
+  private readonly encoder: RemoteSttFrameEncoder | null
 
-  constructor(sampleRate: number) {
+  constructor(sampleRate: number, encoder: RemoteSttFrameEncoder | null = null) {
     this.frameSamples = Math.max(1, Math.round((sampleRate * FRAME_MS) / 1000))
+    // Frames double as Opus frames; an encoder with another frame size is not used.
+    this.encoder = encoder?.frameSamples === this.frameSamples ? encoder : null
     this.pauseFrames = Math.ceil(SEGMENT_PAUSE_MS / FRAME_MS)
     this.minFrames = Math.round((SEGMENT_MIN_SECONDS * 1000) / FRAME_MS)
     this.maxFrames = Math.round((SEGMENT_MAX_SECONDS * 1000) / FRAME_MS)
@@ -40,8 +51,8 @@ export class RemoteSttSegmenter {
   }
 
   /** Returns the segments closed by this audio, oldest first, with speech in them. */
-  push(samples: Float32Array): Float32Array[] {
-    const ready: Float32Array[] = []
+  push(samples: Float32Array): RemoteSttSegment[] {
+    const ready: RemoteSttSegment[] = []
     const input = this.pending.length > 0 ? concat([this.pending, samples]) : samples
     let offset = 0
     for (; offset + this.frameSamples <= input.length; offset += this.frameSamples) {
@@ -56,19 +67,25 @@ export class RemoteSttSegmenter {
   }
 
   /** Returns what is left when dictation stops, or null when it holds no speech. */
-  flush(): Float32Array | null {
+  flush(): RemoteSttSegment | null {
     if (this.pending.length > 0) {
       this.frames.push(this.pending)
       this.frameRms.push(rms(this.pending))
+      if (this.encoder) {
+        this.packets.push(this.encoder.encode(this.pending))
+      }
       this.pending = new Float32Array(0)
     }
     return this.take(this.frames.length)
   }
 
-  private addFrame(frame: Float32Array): Float32Array | null {
+  private addFrame(frame: Float32Array): RemoteSttSegment | null {
     const level = rms(frame)
     this.frames.push(frame)
     this.frameRms.push(level)
+    if (this.encoder) {
+      this.packets.push(this.encoder.encode(frame))
+    }
     this.trackNoiseFloor(level)
     this.trailingSilentFrames = this.isSpeech(level) ? 0 : this.trailingSilentFrames + 1
     if (this.frames.length >= this.minFrames && this.trailingSilentFrames >= this.pauseFrames) {
@@ -112,12 +129,26 @@ export class RemoteSttSegmenter {
     return best
   }
 
-  private take(frameCount: number): Float32Array | null {
+  private take(frameCount: number): RemoteSttSegment | null {
     const frames = this.frames.splice(0, frameCount)
     const levels = this.frameRms.splice(0, frameCount)
+    const packets = this.packets.splice(0, frameCount)
     this.trailingSilentFrames = Math.min(this.trailingSilentFrames, this.frames.length)
+    this.restartEncoder()
     const speechFrames = levels.filter((level) => this.isSpeech(level)).length
-    return speechFrames >= this.minSpeechFrames ? concat(frames) : null
+    if (speechFrames < this.minSpeechFrames) {
+      return null
+    }
+    return { samples: concat(frames), packets: this.encoder ? packets : null }
+  }
+
+  // Each segment uploads as its own Opus stream. Frames kept past a cut were encoded on the
+  // old stream, so they are encoded again (at most the quiet-search window, on a long cut).
+  private restartEncoder(): void {
+    const encoder = this.encoder
+    if (encoder?.restart()) {
+      this.packets = this.frames.map((frame) => encoder.encode(frame))
+    }
   }
 }
 
