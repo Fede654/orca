@@ -65,8 +65,10 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas de archivo son 
   - **Empaquetado:** Orca solo lleva a la app una lista blanca de `node_modules`, así que
     la librería va en el bundle del proceso principal (`BUNDLED_MAIN_DEPENDENCIES` en
     `electron.vite.config.ts`), como un chunk aparte. orcad la incluye con el ajuste de
-    `import.meta.url` que ya trae su build. El smoke check del release verifica que esté
-    en `app.asar` y en `orcad-server.js`.
+    `import.meta.url` que ya trae su build. Los chunks de main van desempaquetados
+    (`asarUnpack` lleva `out/main/chunks/**`), así que el chunk queda en
+    `app.asar.unpacked/out/main/chunks/`. El smoke check del release lo busca ahí y en
+    `app.asar`, y también en `orcad-server.js` (hub.3 falló por mirar solo `app.asar`).
   - **Mantenimiento:** el tema toca `package.json`, `pnpm-lock.yaml` y
     `electron.vite.config.ts`. Si el lockfile choca en un rebase, se toma el de upstream y
     se corre `pnpm install --lockfile-only`. Después se verifica que el hash de
