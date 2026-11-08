@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { forkAwareAppVersion } from '../../shared/fork-build'
 import {
   isMacInstallerReady,
   registerMacUpdaterEvents,
@@ -104,7 +105,7 @@ export function registerAutoUpdaterHandlers({
     if (
       !isLocalBuildCheck() &&
       !isPinnedBuildCheck() &&
-      compareVersions(info.version, app.getVersion()) <= 0
+      compareVersions(info.version, forkAwareAppVersion(app.getVersion())) <= 0
     ) {
       clearAvailableUpdateContext()
       if (missingManifestFallback || publishingWindowLastGoodCheck) {
@@ -248,7 +249,7 @@ export function registerAutoUpdaterHandlers({
     if (
       !isLocalBuildCheck() &&
       !isPinnedBuildCheck() &&
-      compareVersions(info.version, app.getVersion()) <= 0
+      compareVersions(info.version, forkAwareAppVersion(app.getVersion())) <= 0
     ) {
       clearAvailableUpdateContext()
       linuxPackageRecovery.clearTrackedLinuxPackageArtifact()

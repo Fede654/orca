@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { forkAwareAppVersion } from '../../../shared/fork-build'
 import {
   fetchLatestStableReleaseTag,
   fetchNewerReleaseTagsWithReadiness
@@ -119,7 +120,8 @@ export abstract class UpdaterReleaseFeed extends UpdaterInstallExecution {
     const attemptId = this.activeUpdateCheckAttemptId
     const autoUpdater = this.getAutoUpdater()
     // Pin the concrete tag because latest/download can move between check and download; stable checks exclude prereleases.
-    const currentVersion = app.getVersion()
+    // Fork: a fork build compares by its release tag (shared/fork-build.ts).
+    const currentVersion = forkAwareAppVersion(app.getVersion())
     const isPerfCheck = variant === 'perf'
     const includePrerelease =
       isPerfCheck || this.includePrereleaseActive || isPrereleaseVersion(currentVersion)
