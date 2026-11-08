@@ -17,6 +17,7 @@ import { formatUpdateDelayDate } from './update-delay-copy'
 import { useNow } from '@/hooks/use-now'
 import { isDelayedUpdatePending } from '../../../../../shared/update-delay'
 import { getReleaseNotesUrlForVersion } from '../../../../../shared/release-channel'
+import { forkAwareAppVersion } from '../../../../../shared/fork-build'
 import { openAppHttpLinkFromAnchor } from '@/lib/browser/navigation/app-http-link-open'
 
 export function GeneralUpdateSettingsSection(): React.JSX.Element {
@@ -47,7 +48,8 @@ export function GeneralUpdateSettingsSection(): React.JSX.Element {
     let cancelled = false
     void window.api.updater.getVersion().then((version) => {
       if (!cancelled) {
-        setAppVersion(version)
+        // Fork: shows the fork's release tag (shared/fork-build.ts).
+        setAppVersion(forkAwareAppVersion(version))
       }
     })
     return () => {
