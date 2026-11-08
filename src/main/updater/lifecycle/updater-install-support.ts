@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { forkAwareAppVersion } from '../../../shared/fork-build'
 import {
   isWindowsSignatureCheckUnavailableFailure,
   isWindowsSignatureMismatchFailure
@@ -25,7 +26,7 @@ export abstract class UpdaterInstallSupport extends UpdaterCheckState {
       // Local and pinned builds may intentionally downgrade.
       (this.activeUpdateSource !== 'release' ||
         this.isPinnedBuildActive ||
-        compareVersions(this.availableVersion, app.getVersion()) > 0)
+        compareVersions(this.availableVersion, forkAwareAppVersion(app.getVersion())) > 0)
     )
   }
 
