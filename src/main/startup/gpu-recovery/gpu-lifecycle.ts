@@ -1,4 +1,5 @@
 import { app, type BrowserWindow } from 'electron'
+import { forkAwareAppVersion } from '../../../shared/fork-build'
 import { relaunchApp } from '../quit/app-relaunch'
 import { destroySystemTray } from '../../tray/system-tray'
 import { applyGpuFallbackCommandLineSwitches } from './gpu-fallback-switches'
@@ -43,7 +44,8 @@ export function updateGpuAccelerationAboutPanel(): void {
   app.setAboutPanelOptions(
     createGpuAccelerationAboutPanelOptions({
       appName: app.name,
-      appVersion: app.getVersion(),
+      // Fork: About shows the fork's release tag (shared/fork-build.ts).
+      appVersion: forkAwareAppVersion(app.getVersion()),
       platform: process.platform,
       gpuFallbackActive: state.gpuFallbackActiveThisLaunch,
       gpuFeatureStatus: state.gpuFeatureStatus

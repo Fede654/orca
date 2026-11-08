@@ -3,6 +3,7 @@ import { prepareRendererForUpdate } from '../../window/renderer-relays/native-un
 import { wslMoveInstallHold } from './updater-wsl-move-install-hold'
 import { app } from 'electron'
 import { updaterCodedMessage } from '../../../shared/updater/updater-failure-copy'
+import { forkAwareAppVersion } from '../../../shared/fork-build'
 import {
   isWindowsSignatureCheckUnavailableFailure,
   isWindowsSignatureMismatchFailure
@@ -32,7 +33,7 @@ export abstract class UpdaterInstallSupport extends UpdaterCheckState {
       // Local and pinned builds may intentionally downgrade.
       (this.activeUpdateSource !== 'release' ||
         this.isPinnedBuildActive ||
-        compareVersions(this.availableVersion, app.getVersion()) > 0)
+        compareVersions(this.availableVersion, forkAwareAppVersion(app.getVersion())) > 0)
     )
   }
 
