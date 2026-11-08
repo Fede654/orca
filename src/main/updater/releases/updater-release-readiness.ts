@@ -1,7 +1,9 @@
 import { net } from 'electron'
 import { parse } from 'yaml'
+import { getAppReleaseRepo } from '../../../shared/fork-build'
 
-const RELEASES_DOWNLOAD_BASE = 'https://github.com/stablyai/orca/releases/download'
+// Fork: the fork's repo in fork builds (shared/fork-build.ts), upstream's otherwise.
+const RELEASES_DOWNLOAD_BASE = `https://github.com/${getAppReleaseRepo()}/releases/download`
 export const FETCH_TIMEOUT_MS = 5000
 
 export function getReleaseDownloadUrl(tag: string): string {
