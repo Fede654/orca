@@ -92,6 +92,11 @@ jobs:
           if [ -f "$GITHUB_WORKSPACE/fork/series" ] && grep -q persistent-browser-profile "$GITHUB_WORKSPACE/fork/series"; then
             grep -q ORCA_BROWSER_PROFILE_DIR "$server" || { echo "ORCA_BROWSER_PROFILE_DIR no está en $server"; exit 1; }
           fi
+          # El dictado remoto manda Opus: libopus-wasm tiene que estar en la app y en orcad (si no, cae a WAV).
+          if [ -f "$GITHUB_WORKSPACE/fork/series" ] && grep -q stt-remote-endpoint "$GITHUB_WORKSPACE/fork/series"; then
+            grep -q _oc_encode_float "$root/resources/app.asar" || { echo "libopus-wasm no está en app.asar"; exit 1; }
+            grep -q _oc_encode_float "$server" || { echo "libopus-wasm no está en $server"; exit 1; }
+          fi
           grep -q '"linux-x64-glibc"' "$root/resources/orcad-template/orcad-template.json" \
             || { echo "el template no declara linux-x64-glibc"; exit 1; }
           sha256sum "$app" | tee "$GITHUB_WORKSPACE/dist/orca-linux.AppImage.sha256"
