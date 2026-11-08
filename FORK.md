@@ -82,6 +82,11 @@ a diario. Cada parche de la serie es una deuda que se paga en cada integración.
   build se identifica por el tag `vX.Y.Z-hub.N`, que `orca-ctl` usa como nombre de la
   release instalada. Cambiarla podría alterar comparaciones de versión con clientes
   emparejados.
+- La identidad del fork va aparte: `hub-release.yml` sella `src/shared/fork-build-stamp.ts`
+  con `X.Y.Z-hub.N` y el repo (tema `fork/release-identity`). Con el sello, About y
+  Settings > Updates muestran `X.Y.Z-hub.N` y el updater del escritorio sigue las releases
+  del fork: ofrece `hub.N+1` y nunca una release de upstream. El resto del código sigue
+  viendo `X.Y.Z`. Sin sello (builds locales, upstream), todo como upstream.
 
 ## 4. Parametrización
 
@@ -264,6 +269,7 @@ caché vive en `.git/rr-cache` del clon local y no viaja con el push.
 | `feat/persistent-browser-profile` | topic | proponer | `ORCA_BROWSER_PROFILE_DIR` (absoluta, 0700, propia, ≤ 80 bytes) | lanzador `orca-electron-persistent`, lista de validadas y chequeo de contrato de `orca-ctl browser` |
 | `feat/stt-remote-endpoint` (sobre el tag: `@adapt/stt-remote-endpoint`; comportamiento: [addendum](fork/addenda/stt-dictado.md)) | topic adaptado | fork-only por ahora | Settings > Voice o `orca-ctl speech remote` (`~/.orca/remote-stt-endpoint.json`); `ORCA_SPEECH_MODEL` fija el modelo de dictado del host (`orca-ctl speech pin`; sin la variable, como upstream; un id inválido corta el dictado) | – |
 | `fix/markdown-footnotes` | topic | proponer | – | – |
+| `fork/release-identity` | topic | fork-only | el sello que escribe `hub-release.yml` (`src/shared/fork-build-stamp.ts`: versión `X.Y.Z-hub.N`, que tiene que ser de la `X.Y.Z` de `package.json`, y repo); sin sello, como upstream. La release lleva `latest-linux.yml` con esa versión | – |
 
 Los temas cuyo comportamiento no se entiende solo con el código tienen un addendum en
 `fork/addenda/`. Explica qué hacen, cómo interactúan con upstream, cómo se operan en los
