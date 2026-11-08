@@ -94,7 +94,9 @@ jobs:
           fi
           # El dictado remoto manda Opus: libopus-wasm tiene que estar en la app y en orcad (si no, cae a WAV).
           if [ -f "$GITHUB_WORKSPACE/fork/series" ] && grep -q stt-remote-endpoint "$GITHUB_WORKSPACE/fork/series"; then
-            grep -q _oc_encode_float "$root/resources/app.asar" || { echo "libopus-wasm no está en app.asar"; exit 1; }
+            # Los chunks de main van desempaquetados (asarUnpack 'out/main/chunks/**'): se busca en los dos.
+            grep -rqs _oc_encode_float "$root/resources/app.asar" "$root/resources/app.asar.unpacked/out/main" \
+              || { echo "libopus-wasm no está en la app (app.asar ni app.asar.unpacked/out/main)"; exit 1; }
             grep -q _oc_encode_float "$server" || { echo "libopus-wasm no está en $server"; exit 1; }
           fi
           grep -q '"linux-x64-glibc"' "$root/resources/orcad-template/orcad-template.json" \
