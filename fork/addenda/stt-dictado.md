@@ -13,8 +13,13 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas de archivo son 
   **cada máquina**.
   - Es el **primero del catálogo**, así que encabeza la lista en Settings > Voice y en el
     teléfono. Los dos recorren el catálogo en orden.
-  - Este repo es público: las direcciones de nuestros servidores van en los repos privados
-    de la infra, no acá. Los ejemplos usan `192.0.2.0/24` (RFC 5737) o nombres genéricos.
+  - **URL precargada:** sin servidor configurado, el diálogo abre con la URL de nuestro
+    servidor (`remote-stt-default-url.ts`). Alcanza con "Save and test", que valida
+    `/health`. Una URL guardada manda sobre la precargada. Es la única dirección de la
+    infra en este repo público: es interna, ya estaba publicada en el tema, y Fede decidió
+    el 2026-11-08 dejarla por conveniencia. Ninguna otra dirección ni nombre de host va
+    acá; van en los repos privados de la infra. Los ejemplos usan `192.0.2.0/24`
+    (RFC 5737) o nombres genéricos.
   - Se carga desde Settings > Voice en el escritorio, o con `orca-ctl speech remote <url>`
     en un hub, que no tiene interfaz.
 - **El remoto usa el cliente de nube de upstream** (`openai-transcription-client.ts`).
