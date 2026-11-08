@@ -3,8 +3,9 @@ import { engineDictationLanguage } from '../../shared/dictation-language'
 import { getCatalogModel } from './model-catalog'
 import {
   OpenAiTranscriptionSession,
-  type RemoteSegmentHandlers
+  type RemoteSegmentOptions
 } from './openai-transcription-client'
+import { createRemoteSttOpusEncoder } from './remote-stt-opus-encoder'
 import { readOpenAiSpeechApiKey } from './openai-api-key-store'
 import { checkRemoteSttHealth, readRemoteSttBaseUrl } from './remote-stt-endpoint-store'
 import type { SttEventSink } from './stt-service'
@@ -65,11 +66,13 @@ export async function startSttDictation(
   }
 }
 
-// Fork: remote segments reach the client as finals while the user is still talking.
-function remoteSegmentHandlers(sink: SttEventSink): RemoteSegmentHandlers {
+// Fork: remote segments reach the client as finals while the user is still talking, and
+// upload as Ogg Opus when libopus loads (WAV otherwise).
+async function remoteSegmentOptions(sink: SttEventSink): Promise<RemoteSegmentOptions> {
   return {
     onSegment: (text) => sink({ type: 'final', text }),
-    onError: (error) => sink({ type: 'error', error })
+    onError: (error) => sink({ type: 'error', error }),
+    frameEncoder: await createRemoteSttOpusEncoder(16000)
   }
 }
 
@@ -117,7 +120,7 @@ async function startSttSession(
       readOpenAiSpeechApiKey,
       engineLanguage,
       remoteBaseUrl,
-      remoteSegmentHandlers(sink)
+      remoteBaseUrl ? await remoteSegmentOptions(sink) : undefined
     )
     state.activeModelId = modelId
     state.activeHotwordsFilePath = undefined

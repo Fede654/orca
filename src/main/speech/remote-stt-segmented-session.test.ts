@@ -35,7 +35,9 @@ function join(...parts: Float32Array[]): Float32Array {
 function feed(segmenter: RemoteSttSegmenter, audio: Float32Array): Float32Array[] {
   const out: Float32Array[] = []
   for (let offset = 0; offset < audio.length; offset += 1600) {
-    out.push(...segmenter.push(audio.slice(offset, offset + 1600)))
+    out.push(
+      ...segmenter.push(audio.slice(offset, offset + 1600)).map((segment) => segment.samples)
+    )
   }
   return out
 }
@@ -48,7 +50,7 @@ describe('RemoteSttSegmenter', () => {
     const segments = feed(segmenter, join(silence(0.3), speech(5), silence(1), speech(2)))
     expect(segments).toHaveLength(1)
     expect(seconds(segments[0])).toBeCloseTo(0.3 + 5 + 0.8, 1)
-    expect(seconds(segmenter.flush()!)).toBeCloseTo(0.2 + 2, 1)
+    expect(seconds(segmenter.flush()!.samples)).toBeCloseTo(0.2 + 2, 1)
   })
 
   it('keeps talking through pauses shorter than 800 ms', () => {
