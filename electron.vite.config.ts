@@ -33,7 +33,9 @@ const BUNDLED_MAIN_DEPENDENCIES = new Set([
   'remark-parse',
   'remark-gfm',
   // Windows NSIS copies app.asar before external resources; bootstrap must not race resources/node_modules.
-  'zod'
+  'zod',
+  // Fork: Opus for remote dictation; a lazy chunk, so packaging needs no extra node_modules.
+  'libopus-wasm'
 ])
 // Official CI alone injects ORCA_BUILD_IDENTITY (stable|rc) and ORCA_POSTHOG_WRITE_KEY secrets; other builds substitute literal null.
 // Compile-time substitution gates telemetry at module load without runtime env fallback; declarations live in src/types/build-constants.d.ts.
