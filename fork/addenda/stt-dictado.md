@@ -28,6 +28,22 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas de archivo son 
   "Remote".
   - **Idioma:** si se elige un idioma de dictado, el servidor recibe el campo `language`.
     Si no acepta un código, el dictado falla con "Remote transcription failed".
+- **Envío por tramos, mientras se habla** (`remote-stt-segmenter.ts`, decidido el
+  2026-11-08). OpenAI sigue con un solo envío al parar, como upstream. El remoto corta el
+  audio en las pausas y transcribe cada tramo apenas cierra:
+  - Un tramo cierra con **800 ms de silencio**, si ya lleva al menos **4 s**. Es una pausa
+    larga a propósito, para quien habla lento. Sin pausas, se corta antes de los **20 s**,
+    en el punto más silencioso de los últimos 5 s.
+  - El silencio se mide por energía, contra un piso de ruido que sigue al micrófono. Un
+    tramo sin voz no se manda.
+  - Se envía un tramo a la vez, en orden. Cada respuesta llega al cliente como `final`;
+    el escritorio y el teléfono ya los van sumando. Al parar solo falta el último tramo.
+  - Un tramo que falla se reintenta una vez. Si falla de nuevo, el error se informa una
+    vez y se descarta el resto del dictado. Lo ya insertado queda.
+  - Medido el 2026-11-08 con un dictado lento de 56 s desde la laptop:
+    - la espera al parar bajó de 9,6 s a 1,9 s;
+    - cada tramo aparece unos 2 s después de su pausa. Casi todo es red: el servidor
+      tarda unos 50 ms, la ida y vuelta por ZeroTier 280 ms y la subida del WAV el resto.
 - **`/health` antes de cada dictado.** Sin URL o con el servidor caído, el dictado no
   arranca y el error lo dice.
 - **Los teléfonos ven el remoto en su lista solo si la URL está configurada.** Aparece como
