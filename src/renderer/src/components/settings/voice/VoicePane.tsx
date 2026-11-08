@@ -11,6 +11,7 @@ import { OpenAiTranscriptionKeyDialog } from './OpenAiTranscriptionKeyDialog'
 import { OpenAiTranscriptionSettingsRow } from './OpenAiTranscriptionSettingsRow'
 import { RemoteSttEndpointDialog } from './RemoteSttEndpointDialog'
 import { RemoteSttEndpointSettingsRow } from './RemoteSttEndpointSettingsRow'
+import { DEFAULT_REMOTE_STT_URL } from './remote-stt-default-url'
 import { handleVoiceDictationToggle } from './voice-dictation-toggle'
 import { VoiceDictationLanguageSetting } from './VoiceDictationLanguageSetting'
 import { VoiceDictationSettingsSection } from './VoiceDictationSettingsSection'
@@ -199,7 +200,7 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
 
   const openRemoteDialog = (modelId: string | null = null): void => {
     setPendingRemoteModelId(modelId)
-    setRemoteUrlDraft(remoteUrl ?? '')
+    setRemoteUrlDraft(remoteUrl ?? DEFAULT_REMOTE_STT_URL)
     setRemoteDialogOpen(true)
   }
 
