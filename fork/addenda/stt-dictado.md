@@ -2,12 +2,12 @@
 
 Complementa el tema `feat/stt-remote-endpoint` (FORK.md §8). Explica **quién transcribe
 qué** en una instalación con escritorio, hubs y teléfonos, qué agrega el fork al
-comportamiento de upstream y cómo se opera en un hub. Las rutas de archivo son de upstream
-`main` con la serie aplicada (2026-11-07). Si se mueven, se busca por nombre de función.
+comportamiento de upstream y cómo se opera en un hub. Las rutas corresponden a
+`v1.4.256` con la serie aplicada.
 
 ## 1. Qué agrega el tema
 
-- **Modelo `remote-parakeet-tdt-0.6b-v3`** (proveedor `remote`): transcribe en un servidor
+- **Modelo `remote-parakeet-tdt-0.6b-v3`** (proveedor OpenAI-compatible de upstream): transcribe en un servidor
   propio compatible con la API de OpenAI (`POST <url>/v1/audio/transcriptions`, health en
   `GET <url>/health`). No usa clave. La URL vive en `~/.orca/remote-stt-endpoint.json` de
   **cada máquina**.
@@ -77,12 +77,12 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas de archivo son 
 - **`/health` antes de cada dictado.** Sin URL o con el servidor caído, el dictado no
   arranca y el error lo dice.
 - **Los teléfonos ven el remoto en su lista solo si la URL está configurada.** Aparece como
-  fila `remote` en estado `ready`, sin tamaño, y no se puede descargar ni borrar (el host
+  fila de nube en estado `ready`, sin tamaño, y no se puede descargar ni borrar (el host
   responde `voice_model_not_downloadable` y `voice_model_not_deletable`). Sin URL no se
   manda nunca: una app vieja lo trataría como modelo local y ofrecería una descarga
   imposible.
-  - **No hace falta rebuildear la app mobile.** Las apps instaladas degradan un proveedor
-    desconocido a vacío y dibujan la fila por su estado (`dictation-reply-schema.ts`).
+  - **No hace falta rebuildear la app mobile.** El host presenta el proveedor como
+    `openai`, que las apps instaladas ya entienden.
 - **`ORCA_SPEECH_MODEL`** (segundo commit del tema): fija el modelo de dictado del host
   (§4).
 
@@ -173,18 +173,15 @@ leer el modelo fijado. Por ejemplo, al volver a una release de upstream.
 - Cualquiera que llegue al puerto del servidor puede transcribir con él. Restringirlo es
   cosa del servidor, no de Orca.
 
-## 6. Diferencias entre `main` y el tag base
+## 6. Adaptación a v1.4.256
 
-El dictado es un área que upstream reescribió en 2026-11, con #39297, #39305, #39327,
-#39346 y #39347. Mientras el tag base no traiga esa reescritura, el tema entra a la
-integración como `adapt/stt-remote-endpoint` (FORK.md §5). La adaptación se arma sobre el
-tag y caduca sola cuando el tag nuevo trae la reescritura.
-
-- **En el tag (v1.4.253):** una sola sesión de dictado a la vez. Un teléfono no puede
-  dictar mientras dicta otro cliente; recibe `dictation_already_active`. No existe la
-  precarga del modelo.
-- **En `main`:** sesiones por dispositivo. Los remotos no compiten con nadie, hasta 4
-  sesiones (`MAX_STT_SESSIONS`).
+Upstream incorporó un proveedor OpenAI-compatible (#40160), sesiones por dispositivo y
+un motor local nuevo. La adaptación `adapt/stt-remote-endpoint-v256` conserva el modelo
+`remote-parakeet-tdt-0.6b-v3` y el archivo que escribe `orca-ctl`, pero usa el cliente
+de transcripción y las sesiones de upstream. Sigue cortando y enviando el audio remoto
+en tramos Ogg Opus. El proveedor genérico de upstream sigue disponible por separado.
+La adaptación está basada exactamente en `v1.4.256`; para el próximo tag hay que volver
+a portar el tema o actualizar su rama sobre `main`.
 
 ## 7. Límites conocidos
 
@@ -193,6 +190,5 @@ tag y caduca sola cuando el tag nuevo trae la reescritura.
   muestran, y el host rechaza el borrado.
 - Ningún test cubre cómo dibuja la app mobile una fila `remote`. La acción depende solo
   del estado, que sí está probado.
-- `stt-session-start.ts` y las llamadas al modelo fijado se validan con tests, sin type
-  check completo: no entra en el tope de memoria de la laptop. Lo completo queda para el
-  CI.
+- La adaptación pasó `pnpm tc`, pruebas puntuales de STT, Opus, modelo fijado y catálogo
+  móvil, además del gate de calidad de los archivos cambiados.
