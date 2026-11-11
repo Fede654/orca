@@ -12,6 +12,11 @@ import {
   SPEECH_MODEL_CATALOG
 } from '../../speech/model-catalog'
 import { isOfferedSpeechModel } from '../../../shared/speech-model-retirement'
+import {
+  pinnedSpeechModelId,
+  SPEECH_MODEL_PIN_INVALID_ERROR,
+  SPEECH_MODEL_PINNED_ERROR
+} from '../../speech/speech-model-pin'
 import { getSpeechModelManager, getSpeechSttService } from '../../speech/speech-runtime-service'
 import { hasLocalSpeechRecognizer } from '../../speech/stt-worker-paths'
 import {
@@ -40,6 +45,7 @@ export class RuntimeMobileSpeechCatalog {
   async list(worktreeId?: string): Promise<RuntimeSpeechSetupState> {
     const store = this.requireStore()
     const voice = store.getSettings().voice ?? getDefaultVoiceSettings()
+    const pin = pinnedSpeechModelId()
     const states = await getSpeechModelManager(store).getModelStates()
     const stateById = new Map(states.map((state) => [state.id, state]))
     // Omit unsupported status variants; older phones could treat them as pickable models.
@@ -66,7 +72,7 @@ export class RuntimeMobileSpeechCatalog {
     })
     return {
       enabled: voice.enabled === true,
-      selectedModelId: voice.sttModel ?? '',
+      selectedModelId: pin.kind === 'none' ? (voice.sttModel ?? '') : pin.id,
       dictationMode: voice.dictationMode === 'hold' ? 'hold' : 'toggle',
       dictationHoldToRecord: voice.dictationHoldToRecord !== false,
       removeFillerWords: voice.removeFillerWords !== false,
@@ -118,7 +124,14 @@ export class RuntimeMobileSpeechCatalog {
   }): Promise<RuntimeSpeechSetupState> {
     const store = this.requireWritableStore()
     const current = store.getSettings().voice ?? getDefaultVoiceSettings()
-    if (params.modelId !== undefined && params.modelId !== '') {
+    const pin = pinnedSpeechModelId()
+    if (pin.kind === 'invalid') {
+      throw new Error(SPEECH_MODEL_PIN_INVALID_ERROR)
+    }
+    if (pin.kind === 'pinned' && params.modelId !== undefined && params.modelId !== pin.id) {
+      throw new Error(SPEECH_MODEL_PINNED_ERROR)
+    }
+    if (pin.kind === 'none' && params.modelId !== undefined && params.modelId !== '') {
       const manifest = getCatalogModel(params.modelId)
       if (!manifest || !isOfferedSpeechModel(manifest)) {
         throw new Error('voice_model_unknown')
@@ -127,7 +140,7 @@ export class RuntimeMobileSpeechCatalog {
     const nextVoice: VoiceSettings = {
       ...current,
       ...(params.enabled !== undefined ? { enabled: params.enabled } : {}),
-      ...(params.modelId !== undefined ? { sttModel: params.modelId } : {}),
+      ...(params.modelId !== undefined && pin.kind === 'none' ? { sttModel: params.modelId } : {}),
       ...(params.dictationMode !== undefined ? { dictationMode: params.dictationMode } : {}),
       ...(params.dictationHoldToRecord !== undefined
         ? { dictationHoldToRecord: params.dictationHoldToRecord }
