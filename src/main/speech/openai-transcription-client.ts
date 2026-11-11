@@ -1,6 +1,8 @@
 import { getMainHttpClient } from '../network/http-client'
 import { resampleToRate } from './stt-audio-resample'
 import type { CloudTranscriptionTarget } from './cloud-transcription-target'
+import type { RemoteSttFrameEncoder } from './remote-stt-opus-encoder'
+import { RemoteSttSegmenter, type RemoteSttSegment } from './remote-stt-segmenter'
 import {
   CLOUD_TRANSCRIPTION_SAMPLE_RATE,
   MAX_CLOUD_TRANSCRIPTION_SECONDS,
@@ -98,20 +100,37 @@ function languageField(model: string): string {
   return /^gpt-(live-)?transcribe/.test(model) ? 'languages[]' : 'language'
 }
 
+export type RemoteSegmentOptions = {
+  onSegment: (text: string) => void
+  onError: (message: string) => void
+  frameEncoder: RemoteSttFrameEncoder | null
+}
+
+type UploadFile = { bytes: Uint8Array<ArrayBuffer>; type: string; name: string; samples: number }
+
 export class OpenAiTranscriptionSession {
   private chunks: Float32Array[] = []
   private audioSamples = 0
   private readonly abortController = new AbortController()
+  private readonly segmenter: RemoteSttSegmenter | null
+  private segmentQueue: Promise<void> = Promise.resolve()
+  private segmentFailed = false
 
   constructor(
     private readonly readTarget: () => CloudTranscriptionTarget,
-    private readonly language?: string
-  ) {}
+    private readonly language?: string,
+    private readonly remoteSegments?: RemoteSegmentOptions
+  ) {
+    this.segmenter = remoteSegments
+      ? new RemoteSttSegmenter(CLOUD_TRANSCRIPTION_SAMPLE_RATE, remoteSegments.frameEncoder)
+      : null
+  }
 
   cancel(): void {
     this.chunks = []
     this.audioSamples = 0
     this.abortController.abort()
+    this.remoteSegments?.frameEncoder?.free()
   }
 
   /** Keeps audio up to the 10-minute upload cap; returns true on the chunk that reaches it. */
@@ -123,19 +142,86 @@ export class OpenAiTranscriptionSession {
     const normalized = resampleToRate(samples, sampleRate, CLOUD_TRANSCRIPTION_SAMPLE_RATE)
     const kept = normalized.slice(0, room)
     this.audioSamples += kept.length
-    this.chunks.push(kept)
+    if (this.segmenter) {
+      if (!this.segmentFailed) {
+        for (const segment of this.segmenter.push(kept)) {
+          this.queueSegment(segment)
+        }
+      }
+    } else {
+      this.chunks.push(kept)
+    }
     return this.audioSamples === MAX_CLOUD_AUDIO_SAMPLES
   }
 
   async finish(): Promise<string> {
+    if (this.segmenter) {
+      const tail = this.segmenter.flush()
+      this.remoteSegments?.frameEncoder?.free()
+      await this.segmentQueue
+      return tail && !this.segmentFailed ? this.transcribeSegment(tail) : ''
+    }
     if (this.chunks.length === 0) {
       return ''
     }
-
-    const target = this.readTarget()
     const chunks = this.chunks
     this.chunks = []
     const wav = encodePcm16Wav(chunks, CLOUD_TRANSCRIPTION_SAMPLE_RATE)
+    return this.transcribeFile({
+      bytes: wav,
+      type: 'audio/wav',
+      name: 'dictation.wav',
+      samples: this.audioSamples
+    })
+  }
+
+  private queueSegment(segment: RemoteSttSegment): void {
+    this.segmentQueue = this.segmentQueue.then(async () => {
+      if (this.segmentFailed || this.abortController.signal.aborted) {
+        return
+      }
+      try {
+        const text = await this.transcribeSegment(segment)
+        if (text && !this.abortController.signal.aborted) {
+          this.remoteSegments?.onSegment(text)
+        }
+      } catch (error) {
+        this.segmentFailed = true
+        if (!this.abortController.signal.aborted) {
+          this.remoteSegments?.onError(error instanceof Error ? error.message : String(error))
+        }
+      }
+    })
+  }
+
+  private async transcribeSegment(segment: RemoteSttSegment): Promise<string> {
+    const encoder = this.remoteSegments?.frameEncoder
+    const file: UploadFile =
+      segment.packets && encoder
+        ? {
+            bytes: Buffer.from(encoder.toOgg(segment.packets, segment.samples.length)),
+            type: 'audio/ogg',
+            name: 'dictation.ogg',
+            samples: segment.samples.length
+          }
+        : {
+            bytes: encodePcm16Wav([segment.samples], CLOUD_TRANSCRIPTION_SAMPLE_RATE),
+            type: 'audio/wav',
+            name: 'dictation.wav',
+            samples: segment.samples.length
+          }
+    try {
+      return await this.transcribeFile(file)
+    } catch (error) {
+      if (this.abortController.signal.aborted) {
+        throw error
+      }
+      return this.transcribeFile(file)
+    }
+  }
+
+  private async transcribeFile(file: UploadFile): Promise<string> {
+    const target = this.readTarget()
     // No response_format: JSON is the default everywhere, and not every provider accepts the field.
     const form = new FormData()
     form.append('model', target.model)
@@ -143,9 +229,9 @@ export class OpenAiTranscriptionSession {
       form.append(languageField(target.model), this.language)
     }
     // A named WAV blob satisfies multipart uploads without temporary files.
-    form.append('file', new Blob([wav], { type: 'audio/wav' }), 'dictation.wav')
+    form.append('file', new Blob([Buffer.from(file.bytes)], { type: file.type }), file.name)
 
-    const timeout = AbortSignal.timeout(cloudTranscriptionTimeoutMs(this.audioSamples))
+    const timeout = AbortSignal.timeout(cloudTranscriptionTimeoutMs(file.samples))
     try {
       return await upload(target, form, AbortSignal.any([this.abortController.signal, timeout]))
     } catch (error) {
