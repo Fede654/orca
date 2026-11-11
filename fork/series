@@ -5,6 +5,6 @@
 topic	fork/tooling	fork-only	doctrina, integrate.sh, actions-guard.sh, hub-release.yml
 topic	fork/partial-orcad-template	fork-only	ORCA_ORCAD_TEMPLATE_TARGETS: el AppImage del hub lleva y verifica solo el template linux-x64
 topic	feat/persistent-browser-profile	proponer	ORCA_BROWSER_PROFILE_DIR: perfil persistente del sidecar Electron en headless
-topic	feat/stt-remote-endpoint@adapt/stt-remote-endpoint	fork-only	STT por servidor remoto compatible con OpenAI (Settings > Voice; los teléfonos lo ven si está configurado) + ORCA_SPEECH_MODEL (modelo fijado por el host) + envío por tramos en Opus (dependencia libopus-wasm: toca package.json, pnpm-lock.yaml y electron.vite.config.ts); adaptado a v1.4.253 (sin la reescritura del dictado #39297/#39305)
+topic	feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v256	fork-only	STT remoto sobre el proveedor OpenAI-compatible de upstream: conserva el modelo y archivo del hub, ORCA_SPEECH_MODEL y tramos Ogg Opus; adaptación específica de v1.4.256
 topic	fix/markdown-footnotes	proponer	footnotes GFM en el editor Markdown
 topic	fork/release-identity	fork-only	sello X.Y.Z-hub.N + repo (lo escribe hub-release.yml): About muestra el tag y el updater del escritorio sigue las releases del fork, nunca las de upstream
