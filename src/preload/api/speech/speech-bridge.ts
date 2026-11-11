@@ -35,6 +35,14 @@ export const speechApi = {
     ipcRenderer.invoke('speech:saveOpenAiCompatibleProvider', provider),
   clearOpenAiCompatibleProvider: (): Promise<void> =>
     ipcRenderer.invoke('speech:clearOpenAiCompatibleProvider'),
+  getRemoteEndpoint: (): Promise<{ url: string | null }> =>
+    ipcRenderer.invoke('speech:getRemoteEndpoint'),
+  saveRemoteEndpoint: (url: string): Promise<{ url: string }> =>
+    ipcRenderer.invoke('speech:saveRemoteEndpoint', url),
+  clearRemoteEndpoint: (): Promise<{ url: null }> =>
+    ipcRenderer.invoke('speech:clearRemoteEndpoint'),
+  checkRemoteEndpoint: (): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('speech:checkRemoteEndpoint'),
   downloadModel: (modelId: string): Promise<void> =>
     ipcRenderer.invoke('speech:downloadModel', modelId),
   cancelDownload: (modelId: string): Promise<void> =>

@@ -11,6 +11,11 @@ import {
   openAiCompatibleTranscriptionUrl,
   readOpenAiCompatibleSpeechProvider
 } from './openai-compatible-speech-provider-store'
+import {
+  getRemoteTranscriptionUrl,
+  readRemoteSttBaseUrl,
+  REMOTE_TRANSCRIPTION_MODEL_BY_ID
+} from './remote-stt-endpoint-store'
 
 export const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions'
 
@@ -43,9 +48,19 @@ export async function canReadCloudSpeechCredentials(
 }
 
 /** Reads the key (and the compatible provider's URL) only when audio is ready to upload. */
-export async function resolveCloudTranscriptionTarget(
-  modelId: string
-): Promise<CloudTranscriptionTarget> {
+export async function resolveCloudTranscriptionTarget(modelId: string): Promise<CloudTranscriptionTarget> {
+  if (modelId in REMOTE_TRANSCRIPTION_MODEL_BY_ID) {
+    const baseUrl = readRemoteSttBaseUrl()
+    if (!baseUrl) {
+      throw new Error('The remote speech server is not set up')
+    }
+    return {
+      url: getRemoteTranscriptionUrl(baseUrl),
+      model: REMOTE_TRANSCRIPTION_MODEL_BY_ID[modelId],
+      apiKey: '',
+      label: 'Remote'
+    }
+  }
   if (getCatalogModel(modelId)?.provider === 'openai-compatible') {
     const provider = await readOpenAiCompatibleSpeechProvider()
     if (!provider) {
