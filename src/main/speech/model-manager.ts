@@ -6,6 +6,7 @@ import { SPEECH_MODEL_CATALOG, getCatalogModel, isLocalSpeechModel } from './mod
 import type { SpeechModelDownload } from './model-download-catalog'
 import { downloadSileroVadInBackground, speechModelDownload } from './speech-vad-model'
 import { hasCloudSpeechCredentials } from './cloud-transcription-target'
+import { hasRemoteSttEndpoint } from './remote-stt-endpoint-store'
 import {
   getSpeechModelCacheDirCandidates,
   migrateSpeechModelCacheIfNeeded,
@@ -103,7 +104,10 @@ export class ModelManager extends SpeechModelDownloadTransport {
     }
 
     if (manifest.provider !== 'local') {
-      const ready = this.hasCloudCredentials(manifest.provider)
+      const ready =
+        modelId === 'remote-parakeet-tdt-0.6b-v3'
+          ? hasRemoteSttEndpoint()
+          : this.hasCloudCredentials(manifest.provider)
       return { id: modelId, status: ready ? 'ready' : 'not-downloaded' }
     }
 

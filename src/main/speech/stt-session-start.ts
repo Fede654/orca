@@ -2,8 +2,13 @@ import { SPEECH_MODEL_NEEDS_UPDATE_ERROR } from '../../shared/speech-model-retir
 import { engineDictationLanguage } from '../../shared/dictation-language'
 import type { SpeechModelManifest } from '../../shared/speech-types'
 import { getCatalogModel } from './model-catalog'
-import { OpenAiTranscriptionSession } from './openai-transcription-client'
+import {
+  OpenAiTranscriptionSession,
+  type RemoteSegmentOptions
+} from './openai-transcription-client'
 import { resolveCloudTranscriptionTarget } from './cloud-transcription-target'
+import { checkRemoteSttHealth, readRemoteSttBaseUrl } from './remote-stt-endpoint-store'
+import { createRemoteSttOpusEncoder } from './remote-stt-opus-encoder'
 import type { SttEventSink } from './stt-service'
 import {
   MAX_STT_SESSIONS,
@@ -92,9 +97,21 @@ export async function startSttDictation(
       await requireModelReady(state, modelId)
       // A cloud dictation needs no recognizer; free one nobody else uses.
       await teardownIdleSttEngine(state)
+      const remote = modelId === 'remote-parakeet-tdt-0.6b-v3'
+      if (remote) {
+        const baseUrl = readRemoteSttBaseUrl()
+        if (!baseUrl) {
+          throw new Error('Remote speech server URL is not configured')
+        }
+        const health = await checkRemoteSttHealth(baseUrl)
+        if (!health.ok) {
+          throw new Error(`Remote speech server is unreachable: ${health.error}`)
+        }
+      }
       session.cloud = new OpenAiTranscriptionSession(
         () => resolveCloudTranscriptionTarget(modelId),
-        engineDictationLanguage(manifest, language)
+        engineDictationLanguage(manifest, language),
+        remote ? await remoteSegmentOptions(sink) : undefined
       )
     }
     throwIfCanceled(state, session)
@@ -105,6 +122,14 @@ export async function startSttDictation(
     session.cloud?.cancel()
     releaseSttSession(state, session)
     throw error
+  }
+}
+
+async function remoteSegmentOptions(sink: SttEventSink): Promise<RemoteSegmentOptions> {
+  return {
+    onSegment: (text) => sink({ type: 'final', text }),
+    onError: (error) => sink({ type: 'error', error }),
+    frameEncoder: await createRemoteSttOpusEncoder(16000)
   }
 }
 
