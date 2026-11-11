@@ -2,6 +2,7 @@ import { getDefaultVoiceSettings } from '../../../shared/constants'
 import { MOBILE_DICTATION_RECONNECT_GRACE_MS } from '../../../shared/rpc-contract/speech/speech-params'
 import { speechModelNotReadyError } from '../../../shared/speech-model-retirement'
 import { getSpeechModelManager, getSpeechSttService } from '../../speech/speech-runtime-service'
+import { resolveDictationModelId } from '../../speech/speech-model-pin'
 import { getCatalogModel, isLocalSpeechModel } from '../../speech/model-catalog'
 import {
   hasLocalSpeechRecognizer,
@@ -57,7 +58,7 @@ export class RuntimeMobileDictationController {
     if (!voice.enabled) {
       throw new Error('voice_dictation_disabled')
     }
-    const modelId = params.modelId || voice.sttModel
+    const modelId = resolveDictationModelId(params.modelId) || voice.sttModel
     if (!modelId) {
       throw new Error('voice_model_not_selected')
     }
