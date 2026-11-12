@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { OpenAiTranscriptionSession } from './openai-transcription-client'
-import { RemoteSttSegmenter, SEGMENT_MAX_SECONDS } from './remote-stt-segmenter'
+import {
+  RemoteSttSegmenter,
+  SEGMENT_MAX_SECONDS,
+  type RemoteSttSegmentProgress
+} from './remote-stt-segmenter'
 
 const RATE = 16000
 
@@ -47,7 +51,9 @@ const seconds = (samples: Float32Array): number => samples.length / RATE
 describe('RemoteSttSegmenter', () => {
   it('reports the actual silence counter and resets it when speech resumes or a segment closes', () => {
     const progress: number[] = []
-    const segmenter = new RemoteSttSegmenter(RATE, null, (silenceMs) => progress.push(silenceMs))
+    const segmenter = new RemoteSttSegmenter(RATE, null, ({ silenceMs }) =>
+      progress.push(silenceMs)
+    )
     feed(segmenter, join(silence(0.3), speech(5), silence(0.4)))
     expect(progress[0]).toBe(0)
     expect(progress.at(-1)).toBe(400)
@@ -60,19 +66,31 @@ describe('RemoteSttSegmenter', () => {
 
   it('does not signal an imminent pause cut before the minimum segment length', () => {
     const progress: number[] = []
-    const segmenter = new RemoteSttSegmenter(RATE, null, (silenceMs) => progress.push(silenceMs))
+    const segmenter = new RemoteSttSegmenter(RATE, null, ({ silenceMs }) =>
+      progress.push(silenceMs)
+    )
     feed(segmenter, join(silence(0.3), speech(2), silence(1)))
     expect(progress).toEqual([0])
   })
 
-  it('reports the final 800 ms before a forced cut and resets for the retained audio', () => {
-    const progress: { silenceMs: number; segmentMs: number }[] = []
-    const segmenter = new RemoteSttSegmenter(RATE, null, (silenceMs, segmentMs) =>
-      progress.push({ silenceMs, segmentMs })
-    )
+  it('reports the final 3 seconds before a forced cut and resets for the retained audio', () => {
+    const progress: RemoteSttSegmentProgress[] = []
+    const segmenter = new RemoteSttSegmenter(RATE, null, (event) => progress.push(event))
     feed(segmenter, join(silence(0.3), speech(30.5)))
-    expect(progress).toContainEqual({ silenceMs: 0, segmentMs: 29_240 })
-    expect(progress).toContainEqual({ silenceMs: 0, segmentMs: 29_960 })
+    expect(progress).toContainEqual({
+      silenceMs: 0,
+      pauseMs: 1_200,
+      segmentMs: 27_040,
+      maxMs: 30_000,
+      limitWarningMs: 3_000
+    })
+    expect(progress).toContainEqual({
+      silenceMs: 0,
+      pauseMs: 1_200,
+      segmentMs: 29_960,
+      maxMs: 30_000,
+      limitWarningMs: 3_000
+    })
     expect(progress.at(-1)?.segmentMs).toBeLessThan(6_000)
   })
 
