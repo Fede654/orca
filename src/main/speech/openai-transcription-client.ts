@@ -103,6 +103,7 @@ function languageField(model: string): string {
 export type RemoteSegmentOptions = {
   onSegment: (text: string) => void
   onError: (message: string) => void
+  onSilenceProgress?: (silenceMs: number) => void
   frameEncoder: RemoteSttFrameEncoder | null
 }
 
@@ -122,7 +123,11 @@ export class OpenAiTranscriptionSession {
     private readonly remoteSegments?: RemoteSegmentOptions
   ) {
     this.segmenter = remoteSegments
-      ? new RemoteSttSegmenter(CLOUD_TRANSCRIPTION_SAMPLE_RATE, remoteSegments.frameEncoder)
+      ? new RemoteSttSegmenter(
+          CLOUD_TRANSCRIPTION_SAMPLE_RATE,
+          remoteSegments.frameEncoder,
+          remoteSegments.onSilenceProgress
+        )
       : null
   }
 
