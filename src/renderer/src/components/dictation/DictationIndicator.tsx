@@ -17,6 +17,7 @@ import { useDictationMeter } from './dictation-meter-store'
 import type { DictationPillAnchor } from './dictation-pill-anchor'
 import { DictationPillCloseButton, DictationPillFailure } from './DictationPillFailure'
 import { DictationPillShell } from './DictationPillShell'
+import { DictationSilenceProgress } from './DictationSilenceProgress'
 import { DictationSetupPill } from './DictationSetupPill'
 import { loadSpeechCatalog } from './speech-model-update-check'
 import type { SpeechModelUpdateTarget } from './speech-model-update-target'
@@ -31,6 +32,7 @@ const FINISH_SPINNER_DELAY_MS = 200
 const CLOUD_LIMIT_WARNING_SECONDS = CLOUD_DICTATION_MAX_SECONDS - 60
 
 type DictationIndicatorProps = {
+  sessionId?: string | null
   /** The mic is recording (and buffering) while the speech engine is still starting. */
   captureLive: boolean
   anchor: DictationPillAnchor | null
@@ -246,7 +248,7 @@ export function DictationPillFinishButton({
   )
 }
 
-function DictationPill({ captureLive, anchor, failure, queued, cleanup }: DictationIndicatorProps) {
+function DictationPill({ captureLive, anchor, failure, queued, cleanup, sessionId }: DictationIndicatorProps) {
   const t = useTranslate()
   const dictationState = useAppStore((state) => state.dictationState)
   const liveText = useAppStore((state) => state.liveText)
@@ -324,6 +326,7 @@ function DictationPill({ captureLive, anchor, failure, queued, cleanup }: Dictat
             <DictationPillStatus label={status} />
           )}
           <DictationPillElapsed seconds={seconds} warning={nearCloudLimit} />
+          {recording && <DictationSilenceProgress sessionId={sessionId ?? null} />}
           {finishing ? (
             <span
               aria-hidden

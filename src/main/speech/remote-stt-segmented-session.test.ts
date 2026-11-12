@@ -45,6 +45,26 @@ function feed(segmenter: RemoteSttSegmenter, audio: Float32Array): Float32Array[
 const seconds = (samples: Float32Array): number => samples.length / RATE
 
 describe('RemoteSttSegmenter', () => {
+  it('reports the actual silence counter and resets it when speech resumes or a segment closes', () => {
+    const progress: number[] = []
+    const segmenter = new RemoteSttSegmenter(RATE, null, (silenceMs) => progress.push(silenceMs))
+    feed(segmenter, join(silence(0.3), speech(5), silence(0.4)))
+    expect(progress[0]).toBe(0)
+    expect(progress.at(-1)).toBe(400)
+    feed(segmenter, speech(0.3))
+    expect(progress.at(-1)).toBe(0)
+    feed(segmenter, silence(0.8))
+    expect(progress).toContain(760)
+    expect(progress.at(-1)).toBe(0)
+  })
+
+  it('does not signal an imminent pause cut before the minimum segment length', () => {
+    const progress: number[] = []
+    const segmenter = new RemoteSttSegmenter(RATE, null, (silenceMs) => progress.push(silenceMs))
+    feed(segmenter, join(silence(0.3), speech(2), silence(1)))
+    expect(progress).toEqual([0])
+  })
+
   it('closes a segment at the first 800 ms pause once it is 4 s long', () => {
     const segmenter = new RemoteSttSegmenter(RATE)
     const segments = feed(segmenter, join(silence(0.3), speech(5), silence(1), speech(2)))
