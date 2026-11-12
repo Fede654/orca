@@ -9,7 +9,7 @@ export const SEGMENT_MIN_SECONDS = 4
 /** Without a pause, cut at the quietest frame of the last few seconds before this. */
 export const SEGMENT_MAX_SECONDS = 30
 /** Time before the forced cut when its warning becomes visible. */
-export const FORCED_CUT_WARNING_MS = 800
+export const FORCED_CUT_WARNING_MS = 3000
 const QUIET_SEARCH_SECONDS = 5
 const FRAME_MS = 20
 const PROGRESS_STEP_MS = 40
@@ -25,6 +25,14 @@ export type RemoteSttSegment = {
   samples: Float32Array
   /** One Opus packet per frame when an encoder is attached; null means upload WAV. */
   packets: Uint8Array[] | null
+}
+
+export type RemoteSttSegmentProgress = {
+  silenceMs: number
+  pauseMs: number
+  segmentMs: number
+  maxMs: number
+  limitWarningMs: number
 }
 
 export class RemoteSttSegmenter {
@@ -48,7 +56,7 @@ export class RemoteSttSegmenter {
   constructor(
     sampleRate: number,
     encoder: RemoteSttFrameEncoder | null = null,
-    private readonly onSegmentProgress?: (silenceMs: number, segmentMs: number) => void
+    private readonly onSegmentProgress?: (progress: RemoteSttSegmentProgress) => void
   ) {
     this.frameSamples = Math.max(1, Math.round((sampleRate * FRAME_MS) / 1000))
     // Frames double as Opus frames; an encoder with another frame size is not used.
@@ -125,8 +133,18 @@ export class RemoteSttSegmenter {
     if (silenceMs !== this.reportedSilenceMs || limitProgressMs !== this.reportedLimitProgressMs) {
       this.reportedSilenceMs = silenceMs
       this.reportedLimitProgressMs = limitProgressMs
-      this.onSegmentProgress?.(silenceMs, this.frames.length * FRAME_MS)
+      this.emitSegmentProgress(silenceMs)
     }
+  }
+
+  private emitSegmentProgress(silenceMs: number): void {
+    this.onSegmentProgress?.({
+      silenceMs,
+      pauseMs: this.pauseFrames * FRAME_MS,
+      segmentMs: this.frames.length * FRAME_MS,
+      maxMs: this.maxFrames * FRAME_MS,
+      limitWarningMs: FORCED_CUT_WARNING_MS
+    })
   }
 
   // Follows quiet stretches down at once and drifts up only on non-speech frames, so long
@@ -171,7 +189,7 @@ export class RemoteSttSegmenter {
     this.speechFrames = this.frameRms.filter((level) => this.isSpeech(level)).length
     this.reportedSilenceMs = 0
     this.reportedLimitProgressMs = 0
-    this.onSegmentProgress?.(0, this.frames.length * FRAME_MS)
+    this.emitSegmentProgress(0)
     if (speechFrames < this.minSpeechFrames) {
       return null
     }

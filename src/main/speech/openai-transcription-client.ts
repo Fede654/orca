@@ -2,7 +2,11 @@ import { getMainHttpClient } from '../network/http-client'
 import { resampleToRate } from './stt-audio-resample'
 import type { CloudTranscriptionTarget } from './cloud-transcription-target'
 import type { RemoteSttFrameEncoder } from './remote-stt-opus-encoder'
-import { RemoteSttSegmenter, type RemoteSttSegment } from './remote-stt-segmenter'
+import {
+  RemoteSttSegmenter,
+  type RemoteSttSegment,
+  type RemoteSttSegmentProgress
+} from './remote-stt-segmenter'
 import {
   CLOUD_TRANSCRIPTION_SAMPLE_RATE,
   MAX_CLOUD_TRANSCRIPTION_SECONDS,
@@ -103,7 +107,7 @@ function languageField(model: string): string {
 export type RemoteSegmentOptions = {
   onSegment: (text: string) => void
   onError: (message: string) => void
-  onSegmentProgress?: (silenceMs: number, segmentMs: number) => void
+  onSegmentProgress?: (progress: RemoteSttSegmentProgress) => void
   frameEncoder: RemoteSttFrameEncoder | null
 }
 
