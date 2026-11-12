@@ -7,7 +7,7 @@ import type { SpeechModelUpdateTarget } from './speech-model-update-target'
 import type {
   SpeechModelManifest,
   SpeechModelState,
-  SpeechSilenceProgressEvent
+  SpeechSegmentProgressEvent
 } from '../../../../shared/speech-types'
 import type { DictationQueuedSendKind } from './use-dictation-queued-send'
 
@@ -53,30 +53,49 @@ export const listening = defineFixture({
   render: () => <PaneWithPill />
 })
 
-let emitSilenceProgress: ((event: SpeechSilenceProgressEvent) => void) | null = null
-let restoreSilenceProgress: (() => void) | null = null
+let emitSegmentProgress: ((event: SpeechSegmentProgressEvent) => void) | null = null
+let restoreSegmentProgress: (() => void) | null = null
+
+function setupSegmentProgress(): void {
+  const original = window.api.speech.onSegmentProgress
+  window.api.speech.onSegmentProgress = (callback) => {
+    emitSegmentProgress = callback
+    return () => {
+      emitSegmentProgress = null
+    }
+  }
+  restoreSegmentProgress = () => {
+    window.api.speech.onSegmentProgress = original
+  }
+}
+
+async function showSegmentProgress(silenceMs: number, segmentMs: number): Promise<void> {
+  emitSegmentProgress?.({
+    sessionId: 'fixture',
+    silenceMs,
+    pauseMs: 1_200,
+    segmentMs,
+    maxMs: 30_000,
+    limitWarningMs: 800
+  })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  restoreSegmentProgress?.()
+}
 
 export const remotePauseProgress = defineFixture({
   width: 520,
   store: { dictationState: 'listening' },
-  setup: () => {
-    const original = window.api.speech.onSilenceProgress
-    window.api.speech.onSilenceProgress = (callback) => {
-      emitSilenceProgress = callback
-      return () => {
-        emitSilenceProgress = null
-      }
-    }
-    restoreSilenceProgress = () => {
-      window.api.speech.onSilenceProgress = original
-    }
-  },
+  setup: setupSegmentProgress,
   render: () => <PaneWithPill sessionId="fixture" />,
-  interact: async () => {
-    emitSilenceProgress?.({ sessionId: 'fixture', silenceMs: 600, pauseMs: 800 })
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    restoreSilenceProgress?.()
-  }
+  interact: () => showSegmentProgress(600, 6_000)
+})
+
+export const remoteMaxProgress = defineFixture({
+  width: 520,
+  store: { dictationState: 'listening' },
+  setup: setupSegmentProgress,
+  render: () => <PaneWithPill sessionId="fixture" />,
+  interact: () => showSegmentProgress(0, 29_600)
 })
 
 export const startingBeforeMic = defineFixture({

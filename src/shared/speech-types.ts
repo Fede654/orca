@@ -91,9 +91,12 @@ export type SpeechPendingEvent = {
   sessionId: string
 }
 
-export type SpeechSilenceProgressEvent = {
+export type SpeechSegmentProgressEvent = {
   silenceMs: number
   pauseMs: number
+  segmentMs: number
+  maxMs: number
+  limitWarningMs: number
   sessionId: string
 }
 
