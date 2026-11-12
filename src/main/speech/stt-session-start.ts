@@ -9,7 +9,11 @@ import {
 import { resolveCloudTranscriptionTarget } from './cloud-transcription-target'
 import { checkRemoteSttHealth, readRemoteSttBaseUrl } from './remote-stt-endpoint-store'
 import { createRemoteSttOpusEncoder } from './remote-stt-opus-encoder'
-import { SEGMENT_PAUSE_MS } from './remote-stt-segmenter'
+import {
+  FORCED_CUT_WARNING_MS,
+  SEGMENT_MAX_SECONDS,
+  SEGMENT_PAUSE_MS
+} from './remote-stt-segmenter'
 import type { SttEventSink } from './stt-service'
 import {
   MAX_STT_SESSIONS,
@@ -130,8 +134,15 @@ async function remoteSegmentOptions(sink: SttEventSink): Promise<RemoteSegmentOp
   return {
     onSegment: (text) => sink({ type: 'final', text }),
     onError: (error) => sink({ type: 'error', error }),
-    onSilenceProgress: (silenceMs) =>
-      sink({ type: 'silence-progress', silenceMs, pauseMs: SEGMENT_PAUSE_MS }),
+    onSegmentProgress: (silenceMs, segmentMs) =>
+      sink({
+        type: 'segment-progress',
+        silenceMs,
+        pauseMs: SEGMENT_PAUSE_MS,
+        segmentMs,
+        maxMs: SEGMENT_MAX_SECONDS * 1000,
+        limitWarningMs: FORCED_CUT_WARNING_MS
+      }),
     frameEncoder: await createRemoteSttOpusEncoder(16000)
   }
 }
