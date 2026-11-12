@@ -234,6 +234,7 @@ export function registerSpeechHandlers(store: Store): void {
                   segmentMs: msg.segmentMs,
                   maxMs: msg.maxMs,
                   limitWarningMs: msg.limitWarningMs,
+                  cutReason: msg.cutReason,
                   sessionId
                 })
                 break

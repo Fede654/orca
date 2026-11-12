@@ -33,6 +33,7 @@ export type SttEvent =
       segmentMs: number
       maxMs: number
       limitWarningMs: number
+      cutReason?: 'pause' | 'limit'
     }
   | { type: 'stopped' }
   | { type: 'error'; error?: string }
