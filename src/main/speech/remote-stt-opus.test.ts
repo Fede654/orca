@@ -8,7 +8,7 @@ import { RemoteSttSegmenter } from './remote-stt-segmenter'
 const RATE = 16000
 
 function speechWithPause(): Float32Array {
-  const parts = [0.3, 5, 1, 2]
+  const parts = [0.3, 5, 1.3, 2]
   const out = new Float32Array(Math.round(parts.reduce((a, b) => a + b) * RATE))
   let offset = Math.round(0.3 * RATE)
   for (const [index, seconds] of parts.slice(1).entries()) {
