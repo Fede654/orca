@@ -227,10 +227,13 @@ export function registerSpeechHandlers(store: Store): void {
               case 'speech-pending':
                 window.webContents.send('speech:pending', { pending: msg.pending, sessionId })
                 break
-              case 'silence-progress':
-                window.webContents.send('speech:silenceProgress', {
+              case 'segment-progress':
+                window.webContents.send('speech:segmentProgress', {
                   silenceMs: msg.silenceMs,
                   pauseMs: msg.pauseMs,
+                  segmentMs: msg.segmentMs,
+                  maxMs: msg.maxMs,
+                  limitWarningMs: msg.limitWarningMs,
                   sessionId
                 })
                 break
