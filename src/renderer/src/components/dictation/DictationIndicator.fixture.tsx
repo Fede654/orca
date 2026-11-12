@@ -76,7 +76,7 @@ async function showSegmentProgress(silenceMs: number, segmentMs: number): Promis
     pauseMs: 1_200,
     segmentMs,
     maxMs: 30_000,
-    limitWarningMs: 800
+    limitWarningMs: 3_000
   })
   await new Promise((resolve) => setTimeout(resolve, 50))
   restoreSegmentProgress?.()
@@ -95,7 +95,7 @@ export const remoteMaxProgress = defineFixture({
   store: { dictationState: 'listening' },
   setup: setupSegmentProgress,
   render: () => <PaneWithPill sessionId="fixture" />,
-  interact: () => showSegmentProgress(0, 29_600)
+  interact: () => showSegmentProgress(0, 28_500)
 })
 
 export const startingBeforeMic = defineFixture({
