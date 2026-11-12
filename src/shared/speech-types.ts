@@ -91,6 +91,12 @@ export type SpeechPendingEvent = {
   sessionId: string
 }
 
+export type SpeechSilenceProgressEvent = {
+  silenceMs: number
+  pauseMs: number
+  sessionId: string
+}
+
 /** Desktop audio posted from the preload straight to the speech process; 'end' follows the last frame. */
 export type SpeechAudioPortMessage =
   | { type: 'feed'; samples: Float32Array; sampleRate: number }

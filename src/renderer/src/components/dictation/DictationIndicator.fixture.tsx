@@ -4,12 +4,17 @@ import { DictationIndicator } from './DictationIndicator'
 import { publishDictationMeter, resetDictationMeter } from './dictation-meter-store'
 import type { DictationFailureKind } from './dictation-toasts'
 import type { SpeechModelUpdateTarget } from './speech-model-update-target'
-import type { SpeechModelManifest, SpeechModelState } from '../../../../shared/speech-types'
+import type {
+  SpeechModelManifest,
+  SpeechModelState,
+  SpeechSilenceProgressEvent
+} from '../../../../shared/speech-types'
 import type { DictationQueuedSendKind } from './use-dictation-queued-send'
 import type { DictationCleanupNotice } from './use-dictation-cleanup'
 
 function PaneWithPill({
   captureLive = true,
+  sessionId = null,
   failure = null,
   queued = null,
   setup = null,
@@ -17,6 +22,7 @@ function PaneWithPill({
   notice = null
 }: {
   captureLive?: boolean
+  sessionId?: string | null
   failure?: DictationFailureKind | null
   queued?: DictationQueuedSendKind | null
   setup?: SpeechModelUpdateTarget | null
@@ -32,6 +38,7 @@ function PaneWithPill({
     <div ref={setPane} className="relative h-28 w-full bg-background">
       {anchor ? (
         <DictationIndicator
+          sessionId={sessionId}
           captureLive={captureLive}
           anchor={anchor}
           failure={failure}
@@ -54,6 +61,32 @@ export const listening = defineFixture({
   store: { dictationState: 'listening' },
   setup: () => publishDictationMeter({ level: 0.5, isSpeaking: true, isClipping: false }),
   render: () => <PaneWithPill />
+})
+
+let emitSilenceProgress: ((event: SpeechSilenceProgressEvent) => void) | null = null
+let restoreSilenceProgress: (() => void) | null = null
+
+export const remotePauseProgress = defineFixture({
+  width: 520,
+  store: { dictationState: 'listening' },
+  setup: () => {
+    const original = window.api.speech.onSilenceProgress
+    window.api.speech.onSilenceProgress = (callback) => {
+      emitSilenceProgress = callback
+      return () => {
+        emitSilenceProgress = null
+      }
+    }
+    restoreSilenceProgress = () => {
+      window.api.speech.onSilenceProgress = original
+    }
+  },
+  render: () => <PaneWithPill sessionId="fixture" />,
+  interact: async () => {
+    emitSilenceProgress?.({ sessionId: 'fixture', silenceMs: 600, pauseMs: 800 })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    restoreSilenceProgress?.()
+  }
 })
 
 export const startingBeforeMic = defineFixture({

@@ -269,6 +269,13 @@ export function registerSpeechHandlers(
               case 'speech-pending':
                 window.webContents.send('speech:pending', { pending: msg.pending, sessionId })
                 break
+              case 'silence-progress':
+                window.webContents.send('speech:silenceProgress', {
+                  silenceMs: msg.silenceMs,
+                  pauseMs: msg.pauseMs,
+                  sessionId
+                })
+                break
               case 'stopped':
                 cleanupSessionListener()
                 window.webContents.send('speech:stopped', { sessionId })
