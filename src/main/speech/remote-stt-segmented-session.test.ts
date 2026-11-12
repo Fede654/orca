@@ -92,6 +92,16 @@ describe('RemoteSttSegmenter', () => {
       limitWarningMs: 3_000
     })
     expect(progress.at(-1)?.segmentMs).toBeLessThan(6_000)
+    expect(progress).toContainEqual(expect.objectContaining({ cutReason: 'limit' }))
+  })
+
+  it('identifies a real pause cut in the reset event', () => {
+    const progress: RemoteSttSegmentProgress[] = []
+    const segmenter = new RemoteSttSegmenter(RATE, null, (event) => progress.push(event))
+    feed(segmenter, join(silence(0.3), speech(5), silence(1.2)))
+    expect(progress.at(-1)).toEqual(
+      expect.objectContaining({ silenceMs: 0, segmentMs: 0, cutReason: 'pause' })
+    )
   })
 
   it('closes a segment at the first 1200 ms pause once it is 4 s long', () => {
