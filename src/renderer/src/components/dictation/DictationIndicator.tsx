@@ -13,6 +13,7 @@ import { dictationSeparators } from '../../../../shared/dictation-transcript-spa
 import { CLOUD_DICTATION_MAX_SECONDS } from '../../../../shared/rpc-contract/speech/speech-params'
 import type { SpeechSegmentProgressEvent } from '../../../../shared/speech-types'
 import { dispatchDictationControl } from './dictation-control-events'
+import { dictationSegmentCue } from './dictation-segment-cue'
 import { DictationGrapes } from './DictationGrapes'
 import { useDictationMeter } from './dictation-meter-store'
 import type { DictationPillAnchor } from './dictation-pill-anchor'
@@ -28,6 +29,7 @@ import { DictationCleanupNoticePill } from './DictationCleanupNoticePill'
 
 // The finish button turns into a spinner only when finishing is slow enough to notice.
 const FINISH_SPINNER_DELAY_MS = 200
+const CUT_FLASH_MS = 500
 // The timer warns a minute before cloud dictation stops.
 const CLOUD_LIMIT_WARNING_SECONDS = CLOUD_DICTATION_MAX_SECONDS - 60
 
@@ -126,19 +128,43 @@ function useDelayedFlag(on: boolean, delayMs: number): boolean {
   return delayed
 }
 
-function useSegmentProgress(sessionId: string | null): SpeechSegmentProgressEvent | null {
+function useSegmentProgress(sessionId: string | null): {
+  progress: SpeechSegmentProgressEvent | null
+  cutFlash: 'pause' | 'limit' | null
+} {
   const [progress, setProgress] = useState<SpeechSegmentProgressEvent | null>(null)
+  const [flash, setFlash] = useState<{
+    sessionId: string
+    reason: 'pause' | 'limit'
+  } | null>(null)
   useEffect(() => {
     if (!sessionId) {
       return
     }
-    return window.api.speech.onSegmentProgress((event) => {
+    let flashTimeout: number | null = null
+    const unsubscribe = window.api.speech.onSegmentProgress((event) => {
       if (event.sessionId === sessionId) {
         setProgress(event)
+        if (event.cutReason) {
+          if (flashTimeout !== null) {
+            window.clearTimeout(flashTimeout)
+          }
+          setFlash({ sessionId, reason: event.cutReason })
+          flashTimeout = window.setTimeout(() => setFlash(null), CUT_FLASH_MS)
+        }
       }
     })
+    return () => {
+      unsubscribe()
+      if (flashTimeout !== null) {
+        window.clearTimeout(flashTimeout)
+      }
+    }
   }, [sessionId])
-  return progress?.sessionId === sessionId ? progress : null
+  return {
+    progress: progress?.sessionId === sessionId ? progress : null,
+    cutFlash: flash?.sessionId === sessionId ? flash.reason : null
+  }
 }
 
 // Only this re-renders per meter tick, not the whole pill.
@@ -191,7 +217,7 @@ function DictationPill({
   const isHoldMode = useAppStore((state) => state.settings?.voice?.dictationMode === 'hold')
   const shortcut = useShortcutKeyDetails('voice.dictation')
   const cloudModel = useIsCloudModel()
-  const segmentProgress = useSegmentProgress(sessionId ?? null)
+  const { progress: segmentProgress, cutFlash } = useSegmentProgress(sessionId ?? null)
 
   const finishing = dictationState === 'stopping'
   const recording = dictationState === 'listening' || (dictationState === 'starting' && captureLive)
@@ -229,35 +255,13 @@ function DictationPill({
     ? t('components.dictation.DictationIndicator.skipCleanup', 'Skip cleanup and insert as heard')
     : t('auto.components.dictation.DictationIndicator.cancel', 'Cancel')
   const finishLabel = t('auto.components.dictation.DictationIndicator.finish', 'Finish')
-  const remainingToLimit = segmentProgress
-    ? Math.max(0, segmentProgress.maxMs - segmentProgress.segmentMs)
-    : 0
-  const forcedCut =
-    segmentProgress !== null &&
-    remainingToLimit < segmentProgress.limitWarningMs &&
-    (segmentProgress.silenceMs === 0 ||
-      remainingToLimit < segmentProgress.pauseMs - segmentProgress.silenceMs)
-  const cueMs = segmentProgress
-    ? forcedCut
-      ? segmentProgress.limitWarningMs - remainingToLimit
-      : segmentProgress.silenceMs
-    : 0
-  const cueWindowMs = segmentProgress
-    ? forcedCut
-      ? segmentProgress.limitWarningMs
-      : segmentProgress.pauseMs
-    : 0
-  const cueLabel =
-    cueMs > 0
-      ? forcedCut
-        ? t('auto.components.dictation.DictationIndicator.forcedCut', 'Forced cut approaching')
-        : t('auto.components.dictation.DictationIndicator.pauseCut', 'Pause cut approaching')
-      : null
-  const cueColor = forcedCut ? 'var(--destructive)' : 'var(--status-warning)'
-  const cueMixPercent =
-    cueWindowMs > 0
-      ? Math.round(forcedCut ? (cueMs / cueWindowMs) * 70 : 70 + (cueMs / cueWindowMs) * 30)
-      : 0
+  const cue = cutFlash ? { kind: cutFlash, mixPercent: 100 } : dictationSegmentCue(segmentProgress)
+  const cueLabel = cue
+    ? cue.kind === 'limit'
+      ? t('auto.components.dictation.DictationIndicator.forcedCut', 'Forced cut approaching')
+      : t('auto.components.dictation.DictationIndicator.pauseCut', 'Pause cut approaching')
+    : null
+  const cueColor = cue?.kind === 'limit' ? 'var(--destructive)' : 'var(--status-warning)'
 
   return (
     <DictationPillShell
@@ -327,13 +331,13 @@ function DictationPill({
                 <Button
                   type="button"
                   size="icon-xs-round"
-                  variant={cueMs > 0 && !forcedCut ? 'dictation-pause' : 'default'}
+                  variant={cue?.kind === 'pause' ? 'dictation-pause' : 'default'}
                   aria-label={cueLabel ? `${finishLabel}. ${cueLabel}` : finishLabel}
                   onClick={() => dispatchDictationControl('stop')}
                   style={
-                    cueMixPercent > 0
+                    cue
                       ? {
-                          backgroundColor: `color-mix(in srgb, ${cueColor} ${cueMixPercent}%, var(--primary))`
+                          backgroundColor: `color-mix(in srgb, ${cueColor} ${cue.mixPercent}%, var(--primary))`
                         }
                       : undefined
                   }

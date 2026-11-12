@@ -97,6 +97,7 @@ export type SpeechSegmentProgressEvent = {
   segmentMs: number
   maxMs: number
   limitWarningMs: number
+  cutReason?: 'pause' | 'limit'
   sessionId: string
 }
 
