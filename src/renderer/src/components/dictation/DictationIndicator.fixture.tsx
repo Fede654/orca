@@ -102,12 +102,12 @@ export const remoteProgressSequence = defineFixture({
     if (!button) {
       throw new Error('Missing finish button')
     }
-    const checkCue = (variant: string, colored: boolean, label: string, full = false) => {
+    const checkCue = (colored: boolean, label: string, blinking = false) => {
       if (
-        button.dataset.variant !== variant ||
         Boolean(button.style.backgroundColor) !== colored ||
         !button.getAttribute('aria-label')?.includes(label) ||
-        (full && !button.style.backgroundColor.includes('100%'))
+        button.getAnimations().some((animation) => !(animation instanceof CSSTransition)) !==
+          blinking
       ) {
         throw new Error(`Unexpected finish button cue at ${label}`)
       }
@@ -129,23 +129,23 @@ export const remoteProgressSequence = defineFixture({
       await new Promise((resolve) => setTimeout(resolve, 50))
     }
     await progress(0, 4_000)
-    checkCue('default', false, 'Finish')
+    checkCue(false, 'Finish')
     await progress(600, 6_000)
-    checkCue('dictation-pause', true, 'Pause cut approaching')
+    checkCue(true, 'Pause cut approaching')
     await progress(0, 6_040)
-    checkCue('default', false, 'Finish')
+    checkCue(false, 'Finish')
     await progress(0, 28_500)
-    checkCue('default', true, 'Forced cut approaching')
+    checkCue(true, 'Forced cut approaching')
     await progress(40, 28_540)
-    checkCue('default', true, 'Forced cut approaching')
+    checkCue(true, 'Forced cut approaching')
     await progress(0, 0, 'pause')
-    checkCue('dictation-pause', true, 'Pause cut approaching', true)
+    checkCue(false, 'Finish', true)
     await new Promise((resolve) => setTimeout(resolve, 550))
-    checkCue('default', false, 'Finish')
+    checkCue(false, 'Finish')
     await progress(0, 0, 'limit')
-    checkCue('default', true, 'Forced cut approaching', true)
+    checkCue(false, 'Finish', true)
     await new Promise((resolve) => setTimeout(resolve, 550))
-    checkCue('default', false, 'Finish')
+    checkCue(false, 'Finish')
     restoreSegmentProgress?.()
   }
 })
