@@ -3,11 +3,13 @@
 import type { RemoteSttFrameEncoder } from './remote-stt-opus-encoder'
 
 /** Silence that closes a segment once it is long enough. Tuned for slow speakers. */
-export const SEGMENT_PAUSE_MS = 800
+export const SEGMENT_PAUSE_MS = 1200
 /** Shorter segments wait for the next pause: tiny clips lose context at the cut. */
 export const SEGMENT_MIN_SECONDS = 4
 /** Without a pause, cut at the quietest frame of the last few seconds before this. */
-export const SEGMENT_MAX_SECONDS = 20
+export const SEGMENT_MAX_SECONDS = 30
+/** Time before the forced cut when its warning becomes visible. */
+export const FORCED_CUT_WARNING_MS = 800
 const QUIET_SEARCH_SECONDS = 5
 const FRAME_MS = 20
 const PROGRESS_STEP_MS = 40
@@ -39,13 +41,14 @@ export class RemoteSttSegmenter {
   private trailingSilentFrames = 0
   private speechFrames = 0
   private reportedSilenceMs = -1
+  private reportedLimitProgressMs = -1
   private noiseFloor = Number.POSITIVE_INFINITY
   private readonly encoder: RemoteSttFrameEncoder | null
 
   constructor(
     sampleRate: number,
     encoder: RemoteSttFrameEncoder | null = null,
-    private readonly onSilenceProgress?: (silenceMs: number) => void
+    private readonly onSegmentProgress?: (silenceMs: number, segmentMs: number) => void
   ) {
     this.frameSamples = Math.max(1, Math.round((sampleRate * FRAME_MS) / 1000))
     // Frames double as Opus frames; an encoder with another frame size is not used.
@@ -103,18 +106,26 @@ export class RemoteSttSegmenter {
     if (this.frames.length >= this.maxFrames) {
       return this.take(this.quietestCut())
     }
-    this.reportSilenceProgress()
+    this.reportSegmentProgress()
     return null
   }
 
-  private reportSilenceProgress(): void {
+  private reportSegmentProgress(): void {
     const silenceMs =
       this.frames.length >= this.minFrames && this.speechFrames >= this.minSpeechFrames
         ? Math.floor((this.trailingSilentFrames * FRAME_MS) / PROGRESS_STEP_MS) * PROGRESS_STEP_MS
         : 0
-    if (silenceMs !== this.reportedSilenceMs) {
+    const limitProgressMs = Math.max(
+      0,
+      Math.floor(
+        ((this.frames.length - this.maxFrames) * FRAME_MS + FORCED_CUT_WARNING_MS) /
+          PROGRESS_STEP_MS
+      ) * PROGRESS_STEP_MS
+    )
+    if (silenceMs !== this.reportedSilenceMs || limitProgressMs !== this.reportedLimitProgressMs) {
       this.reportedSilenceMs = silenceMs
-      this.onSilenceProgress?.(silenceMs)
+      this.reportedLimitProgressMs = limitProgressMs
+      this.onSegmentProgress?.(silenceMs, this.frames.length * FRAME_MS)
     }
   }
 
@@ -159,7 +170,8 @@ export class RemoteSttSegmenter {
     const speechFrames = levels.filter((level) => this.isSpeech(level)).length
     this.speechFrames = this.frameRms.filter((level) => this.isSpeech(level)).length
     this.reportedSilenceMs = 0
-    this.onSilenceProgress?.(0)
+    this.reportedLimitProgressMs = 0
+    this.onSegmentProgress?.(0, this.frames.length * FRAME_MS)
     if (speechFrames < this.minSpeechFrames) {
       return null
     }
