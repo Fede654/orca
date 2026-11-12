@@ -26,6 +26,7 @@ export type SttEvent =
   | { type: 'final'; text?: string }
   /** Speech was heard that no final has committed yet; only from pause-cut on-device models. */
   | { type: 'speech-pending'; pending: boolean }
+  | { type: 'silence-progress'; silenceMs: number; pauseMs: number }
   | { type: 'stopped' }
   | { type: 'error'; error?: string }
 
