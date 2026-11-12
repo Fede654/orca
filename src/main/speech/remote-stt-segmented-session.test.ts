@@ -53,8 +53,8 @@ describe('RemoteSttSegmenter', () => {
     expect(progress.at(-1)).toBe(400)
     feed(segmenter, speech(0.3))
     expect(progress.at(-1)).toBe(0)
-    feed(segmenter, silence(0.8))
-    expect(progress).toContain(760)
+    feed(segmenter, silence(1.2))
+    expect(progress).toContain(1_160)
     expect(progress.at(-1)).toBe(0)
   })
 
@@ -65,36 +65,47 @@ describe('RemoteSttSegmenter', () => {
     expect(progress).toEqual([0])
   })
 
-  it('closes a segment at the first 800 ms pause once it is 4 s long', () => {
+  it('reports the final 800 ms before a forced cut and resets for the retained audio', () => {
+    const progress: { silenceMs: number; segmentMs: number }[] = []
+    const segmenter = new RemoteSttSegmenter(RATE, null, (silenceMs, segmentMs) =>
+      progress.push({ silenceMs, segmentMs })
+    )
+    feed(segmenter, join(silence(0.3), speech(30.5)))
+    expect(progress).toContainEqual({ silenceMs: 0, segmentMs: 29_240 })
+    expect(progress).toContainEqual({ silenceMs: 0, segmentMs: 29_960 })
+    expect(progress.at(-1)?.segmentMs).toBeLessThan(6_000)
+  })
+
+  it('closes a segment at the first 1200 ms pause once it is 4 s long', () => {
     const segmenter = new RemoteSttSegmenter(RATE)
-    const segments = feed(segmenter, join(silence(0.3), speech(5), silence(1), speech(2)))
+    const segments = feed(segmenter, join(silence(0.3), speech(5), silence(1.4), speech(2)))
     expect(segments).toHaveLength(1)
-    expect(seconds(segments[0])).toBeCloseTo(0.3 + 5 + 0.8, 1)
+    expect(seconds(segments[0])).toBeCloseTo(0.3 + 5 + 1.2, 1)
     expect(seconds(segmenter.flush()!.samples)).toBeCloseTo(0.2 + 2, 1)
   })
 
-  it('keeps talking through pauses shorter than 800 ms', () => {
+  it('keeps talking through pauses shorter than 1200 ms', () => {
     const segmenter = new RemoteSttSegmenter(RATE)
-    expect(feed(segmenter, join(silence(0.3), speech(5), silence(0.6), speech(3)))).toEqual([])
+    expect(feed(segmenter, join(silence(0.3), speech(5), silence(0.9), speech(3)))).toEqual([])
   })
 
   it('waits for a later pause when the segment is still under 4 s', () => {
     const segmenter = new RemoteSttSegmenter(RATE)
     const segments = feed(
       segmenter,
-      join(silence(0.3), speech(2), silence(1), speech(3), silence(1))
+      join(silence(0.3), speech(2), silence(1), speech(3), silence(1.3))
     )
     expect(segments).toHaveLength(1)
-    expect(seconds(segments[0])).toBeCloseTo(0.3 + 2 + 1 + 3 + 0.8, 1)
+    expect(seconds(segments[0])).toBeCloseTo(0.3 + 2 + 1 + 3 + 1.2, 1)
   })
 
   it('cuts speech without pauses before the maximum, at its quietest frame', () => {
     const segmenter = new RemoteSttSegmenter(RATE)
     const dip = new Float32Array(Math.round(0.04 * RATE))
-    const segments = feed(segmenter, join(silence(0.3), speech(17), dip, speech(10)))
+    const segments = feed(segmenter, join(silence(0.3), speech(27), dip, speech(10)))
     expect(segments).toHaveLength(1)
     expect(seconds(segments[0])).toBeLessThanOrEqual(SEGMENT_MAX_SECONDS)
-    expect(seconds(segments[0])).toBeCloseTo(0.3 + 17 + 0.02, 1)
+    expect(seconds(segments[0])).toBeCloseTo(0.3 + 27 + 0.02, 1)
   })
 
   it('never returns segments that hold no speech', () => {
@@ -144,8 +155,8 @@ describe('OpenAiTranscriptionSession with a remote server', () => {
     const onSegment = vi.fn()
     const session = remoteSession(onSegment)
 
-    session.feedAudio(join(silence(0.3), speech(5), silence(1)), RATE)
-    session.feedAudio(join(speech(5), silence(1)), RATE)
+    session.feedAudio(join(silence(0.3), speech(5), silence(1.3)), RATE)
+    session.feedAudio(join(speech(5), silence(1.3)), RATE)
     session.feedAudio(speech(2), RATE)
     await vi.waitFor(() => expect(calls).toHaveLength(1))
     // The second segment waits for the first answer: one request at a time keeps the order.
@@ -170,7 +181,7 @@ describe('OpenAiTranscriptionSession with a remote server', () => {
     const onError = vi.fn()
     const session = remoteSession(onSegment, onError)
 
-    session.feedAudio(join(silence(0.3), speech(5), silence(1)), RATE)
+    session.feedAudio(join(silence(0.3), speech(5), silence(1.3)), RATE)
 
     await vi.waitFor(() => expect(onSegment).toHaveBeenCalledWith('ok'))
     expect(onError).not.toHaveBeenCalled()
@@ -182,9 +193,9 @@ describe('OpenAiTranscriptionSession with a remote server', () => {
     const onError = vi.fn()
     const session = remoteSession(onSegment, onError)
 
-    session.feedAudio(join(silence(0.3), speech(5), silence(1)), RATE)
+    session.feedAudio(join(silence(0.3), speech(5), silence(1.3)), RATE)
     await vi.waitFor(() => expect(onError).toHaveBeenCalledTimes(1))
-    session.feedAudio(join(speech(5), silence(1), speech(2)), RATE)
+    session.feedAudio(join(speech(5), silence(1.3), speech(2)), RATE)
 
     expect(await session.finish()).toBe('')
     expect(calls).toHaveLength(2)
@@ -202,7 +213,7 @@ describe('OpenAiTranscriptionSession with a remote server', () => {
     const onSegment = vi.fn()
     const session = remoteSession(onSegment)
 
-    session.feedAudio(join(silence(0.3), speech(5), silence(1)), RATE)
+    session.feedAudio(join(silence(0.3), speech(5), silence(1.3)), RATE)
     session.cancel()
     release()
     await new Promise((resolve) => setTimeout(resolve, 10))
