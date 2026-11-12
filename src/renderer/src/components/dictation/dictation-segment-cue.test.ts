@@ -16,14 +16,14 @@ describe('dictation segment cue', () => {
     expect(dictationSegmentCue(progress(0, 4_000))).toBeNull()
     expect(dictationSegmentCue(progress(600, 6_000))).toEqual({
       kind: 'pause',
-      mixPercent: 85
+      mixPercent: 43
     })
     expect(dictationSegmentCue(progress(0, 6_040))).toBeNull()
     expect(dictationSegmentCue(progress(0, 1_000))).toBeNull()
   })
 
   it('keeps the limit warning through brief silence near 30 seconds', () => {
-    expect(dictationSegmentCue(progress(0, 28_500))).toEqual({ kind: 'limit', mixPercent: 35 })
-    expect(dictationSegmentCue(progress(40, 28_540))).toEqual({ kind: 'limit', mixPercent: 36 })
+    expect(dictationSegmentCue(progress(0, 28_500))).toEqual({ kind: 'limit', mixPercent: 47 })
+    expect(dictationSegmentCue(progress(40, 28_540))).toEqual({ kind: 'limit', mixPercent: 48 })
   })
 })
