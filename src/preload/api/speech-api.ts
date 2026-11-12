@@ -25,6 +25,10 @@ export type SpeechApi = {
   /** A blank key keeps the saved one while the base URL is unchanged. */
   saveOpenAiCompatibleProvider: (provider: OpenAiCompatibleSpeechProvider) => Promise<void>
   clearOpenAiCompatibleProvider: () => Promise<void>
+  getRemoteEndpoint: () => Promise<{ url: string | null }>
+  saveRemoteEndpoint: (url: string) => Promise<{ url: string }>
+  clearRemoteEndpoint: () => Promise<{ url: null }>
+  checkRemoteEndpoint: () => Promise<{ ok: true } | { ok: false; error: string }>
   downloadModel: (modelId: string) => Promise<void>
   cancelDownload: (modelId: string) => Promise<void>
   deleteModel: (modelId: string) => Promise<void>

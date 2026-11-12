@@ -9,6 +9,9 @@ import { useAppStore } from '@/store/index'
 import { OpenAiTranscriptionKeyDialog } from './OpenAiTranscriptionKeyDialog'
 import { OpenAiCompatibleProviderDialog } from './OpenAiCompatibleProviderDialog'
 import { OpenAiTranscriptionSettingsRow } from './OpenAiTranscriptionSettingsRow'
+import { RemoteSttEndpointDialog } from './RemoteSttEndpointDialog'
+import { RemoteSttEndpointSettingsRow } from './RemoteSttEndpointSettingsRow'
+import { useRemoteSttEndpointSettings } from './use-remote-stt-endpoint-settings'
 import {
   handleVoiceDictationToggle,
   voiceDictationPermissionToasts
@@ -77,6 +80,13 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
     [updateSettings]
   )
 
+  const remoteEndpoint = useRemoteSttEndpointSettings({
+    selectedModelId: voiceSettings.sttModel,
+    refreshModelStates,
+    updateVoiceSettings,
+    isMounted: () => mountedRef.current
+  })
+
   useEffect(() => {
     let cancelled = false
     refreshModelStates()
@@ -128,7 +138,7 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
 
   const selectedModel = catalog.find((m) => m.id === voiceSettings.sttModel)
 
-  const compatibleModel = catalog.find((m) => m.provider === 'openai-compatible')
+  const compatibleModel = catalog.find((m) => m.id === 'openai-compatible')
   const compatibleConfigured =
     compatibleModel !== undefined &&
     modelStates.some((s) => s.id === compatibleModel.id && s.status === 'ready')
@@ -145,7 +155,9 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
   }
 
   const openCloudSetup = (modelId: string): void => {
-    if (catalog.find((m) => m.id === modelId)?.provider === 'openai-compatible') {
+    if (modelId === 'remote-parakeet-tdt-0.6b-v3') {
+      remoteEndpoint.openSetup(modelId)
+    } else if (catalog.find((m) => m.id === modelId)?.provider === 'openai-compatible') {
       openCompatibleDialog(modelId)
     } else {
       openOpenAiDialog(modelId)
@@ -163,7 +175,7 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
   const removeCompatibleProvider = async (): Promise<void> => {
     try {
       await window.api.speech.clearOpenAiCompatibleProvider()
-      if (selectedModel?.provider === 'openai-compatible') {
+      if (selectedModel?.id === 'openai-compatible') {
         updateVoiceSettings({ sttModel: '' })
       }
       refreshModelStates()
@@ -321,6 +333,16 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
                   onClear={() => void removeCompatibleProvider()}
                 />
               ) : null}
+              {remoteEndpoint.url || selectedModel?.id === 'remote-parakeet-tdt-0.6b-v3' ? (
+                <div data-settings-row="" className="px-5">
+                  <RemoteSttEndpointSettingsRow
+                    url={remoteEndpoint.url}
+                    disabled={remoteEndpoint.pending}
+                    onConfigure={() => remoteEndpoint.openSetup(null)}
+                    onClear={() => void remoteEndpoint.clear()}
+                  />
+                </div>
+              ) : null}
             </>
           }
         />
@@ -353,6 +375,17 @@ export function VoicePane({ settings, updateSettings }: VoicePaneProps): React.J
         open={compatibleDialogOpen}
         onOpenChange={setCompatibleDialogOpen}
         onSaved={handleCompatibleSaved}
+      />
+
+      <RemoteSttEndpointDialog
+        open={remoteEndpoint.dialogOpen}
+        configured={remoteEndpoint.url !== null}
+        urlDraft={remoteEndpoint.urlDraft}
+        pending={remoteEndpoint.pending}
+        onOpenChange={remoteEndpoint.setDialogOpen}
+        onUrlDraftChange={remoteEndpoint.setUrlDraft}
+        onSave={() => void remoteEndpoint.save()}
+        onClear={() => void remoteEndpoint.clear()}
       />
 
       <OpenAiTranscriptionKeyDialog
