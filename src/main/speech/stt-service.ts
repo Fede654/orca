@@ -26,6 +26,7 @@ export type SttEvent =
   | { type: 'final'; text?: string }
   /** Speech was heard whose text hasn't arrived yet; only from pause-cut on-device models. */
   | { type: 'speech-pending'; pending: boolean }
+  | { type: 'silence-progress'; silenceMs: number; pauseMs: number }
   | { type: 'stopped' }
   | { type: 'error'; error?: string }
 
