@@ -418,6 +418,7 @@ export function DictationController() {
   return (
     <DictationIndicator
       key={recordingKey}
+      sessionId={sessionRef.current.sessionId}
       captureLive={captureLive}
       anchor={pillAnchor}
       failure={failure}

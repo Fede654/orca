@@ -10,6 +10,7 @@ export const SEGMENT_MIN_SECONDS = 4
 export const SEGMENT_MAX_SECONDS = 20
 const QUIET_SEARCH_SECONDS = 5
 const FRAME_MS = 20
+const PROGRESS_STEP_MS = 40
 // About -48 dBFS: quieter frames are silence whatever the room noise.
 const MIN_SPEECH_RMS = 0.004
 // A frame is speech when it is this many times louder than the tracked noise floor.
@@ -36,10 +37,16 @@ export class RemoteSttSegmenter {
   private frameRms: number[] = []
   private packets: Uint8Array[] = []
   private trailingSilentFrames = 0
+  private speechFrames = 0
+  private reportedSilenceMs = -1
   private noiseFloor = Number.POSITIVE_INFINITY
   private readonly encoder: RemoteSttFrameEncoder | null
 
-  constructor(sampleRate: number, encoder: RemoteSttFrameEncoder | null = null) {
+  constructor(
+    sampleRate: number,
+    encoder: RemoteSttFrameEncoder | null = null,
+    private readonly onSilenceProgress?: (silenceMs: number) => void
+  ) {
     this.frameSamples = Math.max(1, Math.round((sampleRate * FRAME_MS) / 1000))
     // Frames double as Opus frames; an encoder with another frame size is not used.
     this.encoder = encoder?.frameSamples === this.frameSamples ? encoder : null
@@ -87,14 +94,28 @@ export class RemoteSttSegmenter {
       this.packets.push(this.encoder.encode(frame))
     }
     this.trackNoiseFloor(level)
-    this.trailingSilentFrames = this.isSpeech(level) ? 0 : this.trailingSilentFrames + 1
+    const speech = this.isSpeech(level)
+    this.speechFrames += Number(speech)
+    this.trailingSilentFrames = speech ? 0 : this.trailingSilentFrames + 1
     if (this.frames.length >= this.minFrames && this.trailingSilentFrames >= this.pauseFrames) {
       return this.take(this.frames.length)
     }
     if (this.frames.length >= this.maxFrames) {
       return this.take(this.quietestCut())
     }
+    this.reportSilenceProgress()
     return null
+  }
+
+  private reportSilenceProgress(): void {
+    const silenceMs =
+      this.frames.length >= this.minFrames && this.speechFrames >= this.minSpeechFrames
+        ? Math.floor((this.trailingSilentFrames * FRAME_MS) / PROGRESS_STEP_MS) * PROGRESS_STEP_MS
+        : 0
+    if (silenceMs !== this.reportedSilenceMs) {
+      this.reportedSilenceMs = silenceMs
+      this.onSilenceProgress?.(silenceMs)
+    }
   }
 
   // Follows quiet stretches down at once and drifts up only on non-speech frames, so long
@@ -136,6 +157,9 @@ export class RemoteSttSegmenter {
     this.trailingSilentFrames = Math.min(this.trailingSilentFrames, this.frames.length)
     this.restartEncoder()
     const speechFrames = levels.filter((level) => this.isSpeech(level)).length
+    this.speechFrames = this.frameRms.filter((level) => this.isSpeech(level)).length
+    this.reportedSilenceMs = 0
+    this.onSilenceProgress?.(0)
     if (speechFrames < this.minSpeechFrames) {
       return null
     }
