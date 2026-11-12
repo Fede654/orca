@@ -11,13 +11,13 @@ import { ArrowUp, Check, CornerDownLeft, Loader2 } from 'lucide-react'
 import { isDictationPillShown } from '../../../../shared/dictation-session-machine'
 import { dictationSeparators } from '../../../../shared/dictation-transcript-spacing'
 import { CLOUD_DICTATION_MAX_SECONDS } from '../../../../shared/rpc-contract/speech/speech-params'
+import type { SpeechSegmentProgressEvent } from '../../../../shared/speech-types'
 import { dispatchDictationControl } from './dictation-control-events'
 import { DictationGrapes } from './DictationGrapes'
 import { useDictationMeter } from './dictation-meter-store'
 import type { DictationPillAnchor } from './dictation-pill-anchor'
 import { DictationPillCloseButton, DictationPillFailure } from './DictationPillFailure'
 import { DictationPillShell } from './DictationPillShell'
-import { DictationSilenceProgress } from './DictationSilenceProgress'
 import { DictationSetupPill } from './DictationSetupPill'
 import { loadSpeechCatalog } from './speech-model-update-check'
 import type { SpeechModelUpdateTarget } from './speech-model-update-target'
@@ -126,6 +126,21 @@ function useDelayedFlag(on: boolean, delayMs: number): boolean {
   return delayed
 }
 
+function useSegmentProgress(sessionId: string | null): SpeechSegmentProgressEvent | null {
+  const [progress, setProgress] = useState<SpeechSegmentProgressEvent | null>(null)
+  useEffect(() => {
+    if (!sessionId) {
+      return
+    }
+    return window.api.speech.onSegmentProgress((event) => {
+      if (event.sessionId === sessionId) {
+        setProgress(event)
+      }
+    })
+  }, [sessionId])
+  return progress?.sessionId === sessionId ? progress : null
+}
+
 // Only this re-renders per meter tick, not the whole pill.
 function DictationPillMeter({ recording, status }: { recording: boolean; status: string }) {
   const t = useTranslate()
@@ -176,6 +191,7 @@ function DictationPill({
   const isHoldMode = useAppStore((state) => state.settings?.voice?.dictationMode === 'hold')
   const shortcut = useShortcutKeyDetails('voice.dictation')
   const cloudModel = useIsCloudModel()
+  const segmentProgress = useSegmentProgress(sessionId ?? null)
 
   const finishing = dictationState === 'stopping'
   const recording = dictationState === 'listening' || (dictationState === 'starting' && captureLive)
@@ -213,6 +229,31 @@ function DictationPill({
     ? t('components.dictation.DictationIndicator.skipCleanup', 'Skip cleanup and insert as heard')
     : t('auto.components.dictation.DictationIndicator.cancel', 'Cancel')
   const finishLabel = t('auto.components.dictation.DictationIndicator.finish', 'Finish')
+  const remainingToLimit = segmentProgress
+    ? Math.max(0, segmentProgress.maxMs - segmentProgress.segmentMs)
+    : 0
+  const forcedCut =
+    segmentProgress !== null &&
+    remainingToLimit < segmentProgress.limitWarningMs &&
+    remainingToLimit < segmentProgress.pauseMs - segmentProgress.silenceMs
+  const cueMs = segmentProgress
+    ? forcedCut
+      ? segmentProgress.limitWarningMs - remainingToLimit
+      : segmentProgress.silenceMs
+    : 0
+  const cueWindowMs = segmentProgress
+    ? forcedCut
+      ? segmentProgress.limitWarningMs
+      : segmentProgress.pauseMs
+    : 0
+  const cueLabel =
+    cueMs > 0
+      ? forcedCut
+        ? t('auto.components.dictation.DictationIndicator.forcedCut', 'Forced cut approaching')
+        : t('auto.components.dictation.DictationIndicator.pauseCut', 'Pause cut approaching')
+      : null
+  const cueColor = forcedCut ? 'var(--destructive)' : 'var(--status-warning)'
+  const cueMixPercent = cueWindowMs > 0 ? Math.round((cueMs / cueWindowMs) * 70) : 0
 
   return (
     <DictationPillShell
@@ -265,7 +306,6 @@ function DictationPill({
           >
             {formatElapsed(seconds)}
           </span>
-          {recording && <DictationSilenceProgress sessionId={sessionId ?? null} />}
           {finishing ? (
             <span
               aria-hidden
@@ -283,8 +323,15 @@ function DictationPill({
                 <Button
                   type="button"
                   size="icon-xs-round"
-                  aria-label={finishLabel}
+                  aria-label={cueLabel ? `${finishLabel}. ${cueLabel}` : finishLabel}
                   onClick={() => dispatchDictationControl('stop')}
+                  style={
+                    cueMixPercent > 0
+                      ? {
+                          backgroundColor: `color-mix(in srgb, ${cueColor} ${cueMixPercent}%, var(--primary))`
+                        }
+                      : undefined
+                  }
                 >
                   <Check className="size-3.5" strokeWidth={2.5} />
                 </Button>
@@ -292,6 +339,7 @@ function DictationPill({
               <TooltipContent side="top" sideOffset={4}>
                 <span className="flex items-center gap-1.5">
                   {finishLabel}
+                  {cueLabel ? <span className="text-muted-foreground">· {cueLabel}</span> : null}
                   {!isHoldMode && shortcut.keys.length > 0 ? (
                     <ShortcutKeyCombo keys={shortcut.keys} doubleTap={shortcut.doubleTap} />
                   ) : null}
