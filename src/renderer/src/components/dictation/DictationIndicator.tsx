@@ -235,7 +235,8 @@ function DictationPill({
   const forcedCut =
     segmentProgress !== null &&
     remainingToLimit < segmentProgress.limitWarningMs &&
-    remainingToLimit < segmentProgress.pauseMs - segmentProgress.silenceMs
+    (segmentProgress.silenceMs === 0 ||
+      remainingToLimit < segmentProgress.pauseMs - segmentProgress.silenceMs)
   const cueMs = segmentProgress
     ? forcedCut
       ? segmentProgress.limitWarningMs - remainingToLimit
@@ -253,7 +254,10 @@ function DictationPill({
         : t('auto.components.dictation.DictationIndicator.pauseCut', 'Pause cut approaching')
       : null
   const cueColor = forcedCut ? 'var(--destructive)' : 'var(--status-warning)'
-  const cueMixPercent = cueWindowMs > 0 ? Math.round((cueMs / cueWindowMs) * 70) : 0
+  const cueMixPercent =
+    cueWindowMs > 0
+      ? Math.round(forcedCut ? (cueMs / cueWindowMs) * 70 : 70 + (cueMs / cueWindowMs) * 30)
+      : 0
 
   return (
     <DictationPillShell
@@ -323,6 +327,7 @@ function DictationPill({
                 <Button
                   type="button"
                   size="icon-xs-round"
+                  variant={cueMs > 0 && !forcedCut ? 'dictation-pause' : 'default'}
                   aria-label={cueLabel ? `${finishLabel}. ${cueLabel}` : finishLabel}
                   onClick={() => dispatchDictationControl('stop')}
                   style={
