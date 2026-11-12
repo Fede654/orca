@@ -33,6 +33,7 @@ export type RemoteSttSegmentProgress = {
   segmentMs: number
   maxMs: number
   limitWarningMs: number
+  cutReason?: 'pause' | 'limit'
 }
 
 export class RemoteSttSegmenter {
@@ -109,10 +110,10 @@ export class RemoteSttSegmenter {
     this.speechFrames += Number(speech)
     this.trailingSilentFrames = speech ? 0 : this.trailingSilentFrames + 1
     if (this.frames.length >= this.minFrames && this.trailingSilentFrames >= this.pauseFrames) {
-      return this.take(this.frames.length)
+      return this.take(this.frames.length, 'pause')
     }
     if (this.frames.length >= this.maxFrames) {
-      return this.take(this.quietestCut())
+      return this.take(this.quietestCut(), 'limit')
     }
     this.reportSegmentProgress()
     return null
@@ -137,13 +138,14 @@ export class RemoteSttSegmenter {
     }
   }
 
-  private emitSegmentProgress(silenceMs: number): void {
+  private emitSegmentProgress(silenceMs: number, cutReason?: 'pause' | 'limit'): void {
     this.onSegmentProgress?.({
       silenceMs,
       pauseMs: this.pauseFrames * FRAME_MS,
       segmentMs: this.frames.length * FRAME_MS,
       maxMs: this.maxFrames * FRAME_MS,
-      limitWarningMs: FORCED_CUT_WARNING_MS
+      limitWarningMs: FORCED_CUT_WARNING_MS,
+      ...(cutReason ? { cutReason } : {})
     })
   }
 
@@ -179,7 +181,7 @@ export class RemoteSttSegmenter {
     return best
   }
 
-  private take(frameCount: number): RemoteSttSegment | null {
+  private take(frameCount: number, cutReason?: 'pause' | 'limit'): RemoteSttSegment | null {
     const frames = this.frames.splice(0, frameCount)
     const levels = this.frameRms.splice(0, frameCount)
     const packets = this.packets.splice(0, frameCount)
@@ -189,7 +191,7 @@ export class RemoteSttSegmenter {
     this.speechFrames = this.frameRms.filter((level) => this.isSpeech(level)).length
     this.reportedSilenceMs = 0
     this.reportedLimitProgressMs = 0
-    this.emitSegmentProgress(0)
+    this.emitSegmentProgress(0, speechFrames >= this.minSpeechFrames ? cutReason : undefined)
     if (speechFrames < this.minSpeechFrames) {
       return null
     }
