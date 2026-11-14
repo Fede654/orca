@@ -1,7 +1,8 @@
 # Único workflow del fork (FORK.md §7): construye el AppImage x64 de un tag vX.Y.Z-hub.N y lo
 # publica como release de Fede654/orca con el asset orca-linux.AppImage (mismo nombre que
 # upstream; GitHub publica su sha256 y orca-ctl lo verifica) y latest-linux.yml, el manifiesto
-# del updater del escritorio. A mano: construye un ref sin publicar y deja ambos como artifact.
+# del updater del escritorio; después suma orca-macos-arm64.dmg (escritorio sin firma de Apple).
+# A mano: construye un ref sin publicar y deja todo como artifact.
 name: Hub release
 
 on:
@@ -65,24 +66,7 @@ jobs:
       - name: Stamp the fork build
         env:
           FORK_VERSION_IN: ${{ github.event_name == 'push' && github.ref_name || inputs.fork_version }}
-        run: |
-          set -euo pipefail
-          stamp=src/shared/fork-build-stamp.ts
-          if [ ! -f "$stamp" ]; then echo "sin el tema fork/release-identity: build sin sello"; exit 0; fi
-          v="${FORK_VERSION_IN#v}"
-          if [ -z "$v" ]; then echo "sin versión de fork: build sin sello"; exit 0; fi
-          [[ "$v" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-hub\.[0-9]+$ ]] || { echo "versión de fork inválida: $v"; exit 1; }
-          base="$(node -p "require('./package.json').version")"
-          [ "${BASH_REMATCH[1]}" = "$base" ] || { echo "$v no es una build de $base (package.json)"; exit 1; }
-          [[ "$GITHUB_REPOSITORY" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || { echo "repo inválido: $GITHUB_REPOSITORY"; exit 1; }
-          printf '%s\n' \
-            "// Sellado por hub-release.yml para $v ($GITHUB_SHA)." \
-            "export const FORK_BUILD_STAMP: { version: string; repo: string } | null = {" \
-            "  version: '$v'," \
-            "  repo: '$GITHUB_REPOSITORY'" \
-            "}" > "$stamp"
-          cat "$stamp"
-          echo "FORK_VERSION=$v" >> "$GITHUB_ENV"
+        run: bash fork/stamp-fork-build.sh "$FORK_VERSION_IN"
 
       - name: Build package inputs
         run: |
@@ -98,6 +82,17 @@ jobs:
           # Por script de pnpm y no por ruta: el script cambió de carpeta entre releases.
           pnpm run build:orcad
           pnpm run build:orcad-template --targets "$ORCA_ORCAD_TEMPLATE_TARGETS"
+
+      # El job de mac empaqueta este mismo template: con él, el escritorio despliega orcad en
+      # hosts SSH linux-x64.
+      - name: Keep the orcad template for the macOS job
+        uses: actions/upload-artifact@v7
+        with:
+          name: orcad-template
+          path: out/orcad-template
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Package AppImage
         env:
@@ -200,3 +195,92 @@ jobs:
           if [ -n "${FORK_VERSION:-}" ]; then assets+=(dist/latest-linux.yml); fi
           gh release create "$TAG" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --latest
+
+  # Escritorio para macOS (arm64) que se conecta a los hubs. Sin certificado de Apple: va
+  # firmado ad-hoc, Gatekeeper pide abrirlo con clic derecho > Abrir la primera vez y el
+  # updater no puede instalar (Squirrel.Mac exige firma): se actualiza bajando el dmg.
+  # Corre después del AppImage para que una falla acá no frene la release de los hubs.
+  macos:
+    needs: appimage
+    if: github.repository == 'Fede654/orca'
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      ORCA_BACKGROUND_LAUNCH: '1'
+      ORCA_CI_MAIN_SOURCEMAPS: '0'
+      ORCA_ORCAD_TEMPLATE_TARGETS: linux-x64-glibc
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/install-node-dependencies
+        with:
+          native-runtime: electron
+          node-version: '24'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
+      - uses: ./.github/actions/install-mobile-dependencies
+
+      - name: Stamp the fork build
+        env:
+          FORK_VERSION_IN: ${{ github.event_name == 'push' && github.ref_name || inputs.fork_version }}
+        run: bash fork/stamp-fork-build.sh "$FORK_VERSION_IN"
+
+      # En darwin build:release también compila los helpers nativos en Swift.
+      - name: Build package inputs
+        run: pnpm run build:release
+
+      - name: Restore the orcad template built for the AppImage
+        uses: actions/download-artifact@v8
+        with:
+          name: orcad-template
+          path: out/orcad-template
+
+      - name: Package dmg (arm64, ad-hoc)
+        env:
+          ORCA_REUSE_PREPARED_NATIVE_RUNTIME: '1'
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder --config config/electron-builder.config.cjs
+          --mac dmg --arm64 -c.mac.identity=- --publish never
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          dmg="$GITHUB_WORKSPACE/dist/orca-macos-arm64.dmg"
+          test -s "$dmg"
+          app="$(find "$GITHUB_WORKSPACE/dist/mac-arm64" -maxdepth 1 -name '*.app' | head -1)"
+          test -n "$app" || { echo "falta el .app en dist/mac-arm64"; ls dist; exit 1; }
+          codesign --verify --deep --strict "$app"
+          res="$app/Contents/Resources"
+          grep -q '"linux-x64-glibc"' "$res/orcad-template/orcad-template.json" \
+            || { echo "el template no declara linux-x64-glibc"; exit 1; }
+          if [ -n "${FORK_VERSION:-}" ]; then
+            grep -rqsF -e "\"$FORK_VERSION\"" -e "'$FORK_VERSION'" "$res/app.asar" "$res/app.asar.unpacked/out" \
+              || { echo "el sello $FORK_VERSION no está en la app"; exit 1; }
+          fi
+          shasum -a 256 "$dmg" | tee "$dmg.sha256"
+
+      - name: Keep the dmg (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: orca-macos-arm64
+          path: |
+            dist/orca-macos-arm64.dmg
+            dist/orca-macos-arm64.dmg.sha256
+          if-no-files-found: warn
+          retention-days: 7
+
+      # La release la crea el job appimage; acá solo se suma el dmg.
+      - name: Add the dmg to the release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" dist/orca-macos-arm64.dmg --repo "$GITHUB_REPOSITORY"
