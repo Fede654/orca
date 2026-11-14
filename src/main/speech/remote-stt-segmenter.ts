@@ -3,7 +3,7 @@
 import type { RemoteSttFrameEncoder } from './remote-stt-opus-encoder'
 
 /** Silence that closes a segment once it is long enough. Tuned for slow speakers. */
-export const SEGMENT_PAUSE_MS = 1200
+export const SEGMENT_PAUSE_MS = 1600
 /** Shorter segments wait for the next pause: tiny clips lose context at the cut. */
 export const SEGMENT_MIN_SECONDS = 4
 /** Without a pause, cut at the quietest frame of the last few seconds before this. */
