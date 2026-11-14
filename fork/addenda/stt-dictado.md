@@ -31,8 +31,8 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas corresponden a
 - **Envío por tramos, mientras se habla** (`remote-stt-segmenter.ts`, decidido el
   2026-11-08). OpenAI sigue con un solo envío al parar, como upstream. El remoto corta el
   audio en las pausas y transcribe cada tramo apenas cierra:
-  - Un tramo cierra con **800 ms de silencio**, si ya lleva al menos **4 s**. Es una pausa
-    larga a propósito, para quien habla lento. Sin pausas, se corta antes de los **20 s**,
+  - Un tramo cierra con **1600 ms de silencio**, si ya lleva al menos **4 s**. Es una pausa
+    larga a propósito, para quien habla lento. Sin pausas, se corta antes de los **30 s**,
     en el punto más silencioso de los últimos 5 s.
   - El silencio se mide por energía, contra un piso de ruido que sigue al micrófono. Un
     tramo sin voz no se manda.
