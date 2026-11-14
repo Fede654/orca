@@ -218,6 +218,12 @@ caché vive en `.git/rr-cache` del clon local y no viaja con el push.
   template de orcad para `linux-x64-glibc` y el AppImage x64, hace un chequeo de humo y
   publica la release en `Fede654/orca` con el asset `orca-linux.AppImage`, el mismo
   nombre que upstream. GitHub publica el sha256 del asset y `orca-ctl` lo verifica.
+- El mismo workflow suma a la release `orca-macos-arm64.dmg`: el escritorio para una Mac que
+  se conecta a los hubs (no corre `orca serve`). Lleva el template de orcad del AppImage y
+  va **firmado ad-hoc, sin certificado de Apple**: la primera vez se abre con clic derecho >
+  Abrir (o `xattr -dr com.apple.quarantine /Applications/Orca.app`), macOS puede volver a
+  pedir permisos en cada versión y el updater no instala (Squirrel.Mac exige firma), así
+  que se actualiza bajando el dmg. Si falla, la release del AppImage ya está publicada.
 - **Workflows de upstream: desactivados.** En la rama destino no existen, porque
   `integrate.sh` los saca. En `main` y en las ramas de tema sí existen, y se desactivan
   por la API con `fork/actions-guard.sh`, que deja activo solo `hub-release.yml`. Hay que
