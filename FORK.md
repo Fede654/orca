@@ -267,7 +267,7 @@ caché vive en `.git/rr-cache` del clon local y no viaja con el push.
 | `fork/tooling` | topic | fork-only | – | – |
 | `fork/partial-orcad-template` | topic | fork-only (se puede proponer como perilla de build) | `ORCA_ORCAD_TEMPLATE_TARGETS` en el workflow (sin la variable verifica los 8 targets; uno desconocido corta el build) | – |
 | `feat/persistent-browser-profile` | topic | proponer | `ORCA_BROWSER_PROFILE_DIR` (absoluta, 0700, propia, ≤ 80 bytes) | lanzador `orca-electron-persistent`, lista de validadas y chequeo de contrato de `orca-ctl browser` |
-| `feat/stt-remote-endpoint` (sobre v1.4.256: `@adapt/stt-remote-endpoint-v256`; comportamiento: [addendum](fork/addenda/stt-dictado.md)) | topic adaptado | fork-only por ahora | Settings > Voice o `orca-ctl speech remote` (`~/.orca/remote-stt-endpoint.json`); `ORCA_SPEECH_MODEL` fija el modelo de dictado del host (`orca-ctl speech pin`; sin la variable, como upstream; un id inválido corta el dictado) | – |
+| `feat/stt-remote-endpoint` (comportamiento: [addendum](fork/addenda/stt-dictado.md)) | topic | fork-only por ahora | Settings > Voice o `orca-ctl speech remote` (`~/.orca/remote-stt-endpoint.json`); `ORCA_SPEECH_MODEL` fija el modelo de dictado del host (`orca-ctl speech pin`; sin la variable, como upstream; un id inválido corta el dictado) | – |
 | `fix/markdown-footnotes` | topic | proponer | – | – |
 | `fork/release-identity` | topic | fork-only | el sello que escribe `hub-release.yml` (`src/shared/fork-build-stamp.ts`: versión `X.Y.Z-hub.N`, que tiene que ser de la `X.Y.Z` de `package.json`, y repo); sin sello, como upstream. La release lleva `latest-linux.yml` con esa versión | – |
 
