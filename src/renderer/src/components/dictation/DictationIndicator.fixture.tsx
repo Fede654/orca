@@ -83,7 +83,7 @@ async function showSegmentProgress(silenceMs: number, segmentMs: number): Promis
   emitSegmentProgress?.({
     sessionId: 'fixture',
     silenceMs,
-    pauseMs: 1_200,
+    pauseMs: 1_600,
     segmentMs,
     maxMs: 30_000,
     limitWarningMs: 3_000
@@ -120,7 +120,7 @@ export const remoteProgressSequence = defineFixture({
       emitSegmentProgress?.({
         sessionId: 'fixture',
         silenceMs,
-        pauseMs: 1_200,
+        pauseMs: 1_600,
         segmentMs,
         maxMs: 30_000,
         limitWarningMs: 3_000,
