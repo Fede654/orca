@@ -1,4 +1,4 @@
-import { isOfferedSpeechModel } from '../../shared/speech-model-retirement'
+import { isOfferedSpeechModel } from '../../shared/speech/models/speech-model-retirement'
 import { getCatalogModel } from './model-catalog'
 
 // Why: headless hubs have no desktop UI and one global model; any paired phone could otherwise

@@ -1,4 +1,4 @@
-import type { SpeechSegmentProgressEvent } from '../../../../shared/speech-types'
+import type { SpeechSegmentProgressEvent } from '../../../../shared/speech/speech-types'
 
 // Both cues start as a hint of colour and accelerate toward the cut; the cut itself blinks.
 const CUE_START_PERCENT = 15
