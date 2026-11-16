@@ -108,7 +108,7 @@ describe('updater release feed in a fork build', () => {
   })
 
   it('links fork releases to the fork repo and upstream releases to upstream', async () => {
-    const { getReleaseNotesUrlForVersion } = await import('../../../shared/release-channel')
+    const { getReleaseNotesUrlForVersion } = await import('../../../shared/updater/release-channel')
 
     expect(getReleaseNotesUrlForVersion('1.4.253-hub.5')).toBe(
       `${FORK}/releases/tag/v1.4.253-hub.5`
