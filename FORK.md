@@ -58,15 +58,15 @@ a diario. Cada parche de la serie es una deuda que se paga en cada integración.
 
 ## 3. Ramas y tags
 
-| Ref | Qué es | Quién la mueve |
-|---|---|---|
-| `main` | Espejo de `stablyai/orca` `main`. **Nunca** se commitea en ella. | `fork/actions-guard.sh --sync-main` (nunca el botón *Sync fork*) |
-| `feat/<tema>`, `fix/<tema>` | Ramas de tema, basadas en upstream `main`. Una por tema. Origen de los PRs a upstream. | Su dueño |
-| `backport/<tema>` | Commit de upstream adaptado a un tag base, cuando no aplica tal cual. Sale cuando el tag lo contiene. | Quien integra |
-| `adapt/<tema>` | Rama de tema rearmada sobre el tag base, cuando la versión sobre `main` no aplica a ese tag. Vale solo para ese tag. | Quien integra |
-| `fork/tooling` | Tema `fork-only`: esta doctrina, `fork/` y `.github/workflows/hub-release.yml`. Siempre primero en la serie. | Quien mantiene el fork |
-| `feat/integration` | **Rama destino y rama por defecto del fork**: tag de upstream + la serie, lineal. Muestra el estado que instalan los hubs. Se regenera (force push) en cada integración. **No es rama de trabajo**: lo que se commitea ahí a mano se pierde en la próxima integración. | `fork/integrate.sh` |
-| `vX.Y.Z-hub.N` | Tag anotado e **inmutable** sobre `feat/integration`. Dispara la build y la release. **Es lo que instalan los hubs.** | `fork/integrate.sh` |
+| Ref                         | Qué es                                                                                                                                                                                                                                                                 | Quién la mueve                                                   |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `main`                      | Espejo de `stablyai/orca` `main`. **Nunca** se commitea en ella.                                                                                                                                                                                                       | `fork/actions-guard.sh --sync-main` (nunca el botón _Sync fork_) |
+| `feat/<tema>`, `fix/<tema>` | Ramas de tema, basadas en upstream `main`. Una por tema. Origen de los PRs a upstream.                                                                                                                                                                                 | Su dueño                                                         |
+| `backport/<tema>`           | Commit de upstream adaptado a un tag base, cuando no aplica tal cual. Sale cuando el tag lo contiene.                                                                                                                                                                  | Quien integra                                                    |
+| `adapt/<tema>`              | Rama de tema rearmada sobre el tag base, cuando la versión sobre `main` no aplica a ese tag. Vale solo para ese tag.                                                                                                                                                   | Quien integra                                                    |
+| `fork/tooling`              | Tema `fork-only`: esta doctrina, `fork/` y `.github/workflows/hub-release.yml`. Siempre primero en la serie.                                                                                                                                                           | Quien mantiene el fork                                           |
+| `feat/integration`          | **Rama destino y rama por defecto del fork**: tag de upstream + la serie, lineal. Muestra el estado que instalan los hubs. Se regenera (force push) en cada integración. **No es rama de trabajo**: lo que se commitea ahí a mano se pierde en la próxima integración. | `fork/integrate.sh`                                              |
+| `vX.Y.Z-hub.N`              | Tag anotado e **inmutable** sobre `feat/integration`. Dispara la build y la release. **Es lo que instalan los hubs.**                                                                                                                                                  | `fork/integrate.sh`                                              |
 
 - `X.Y.Z` es la release de upstream usada como base (su tag `vX.Y.Z`). `N` arranca en 1
   por cada base y sube en cada reintegración sobre la misma base (otro tema, otro fix).
@@ -74,7 +74,7 @@ a diario. Cada parche de la serie es una deuda que se paga en cada integración.
   se arma sobre un **tag**, no sobre `main`: los tags de upstream salen de ramas de release
   con entre 7 y 22 commits de preparación que no están en `main`, y es lo que upstream
   probó. Instalar una punta de `main` en un hub es instalar algo que nadie publicó.
-- **Nunca el botón *Sync fork*** de GitHub, en ninguna rama. Sobre `feat/integration` (la
+- **Nunca el botón _Sync fork_** de GitHub, en ninguna rama. Sobre `feat/integration` (la
   que muestra la página del fork) ofrece mergear upstream `main` o descartar la serie, y
   cualquiera de las dos rompe la rama destino. Sobre `main` dispara workflows de upstream
   (§7).
@@ -190,6 +190,7 @@ tema puede aplicar sobre `main` y no sobre el tag, o al revés.
    - los temas que upstream absorbió se saltean.
 
    En todos esos casos `integrate.sh` avisa qué sacar de la serie.
+
 2. **Si un tema choca igual sobre el tag y sobre `main`**, el problema es del tema:
    upstream reescribió lo que toca. Se rebasa la rama sobre `main` y se reimplementa
    sobre la arquitectura nueva, sin forzar los hunks viejos.
@@ -268,14 +269,14 @@ caché vive en `.git/rr-cache` del clon local y no viaja con el push.
 
 ## 8. Serie actual
 
-| Entrada | Tipo | Upstream | Parametrización | Retira |
-|---|---|---|---|---|
-| `fork/tooling` | topic | fork-only | – | – |
-| `fork/partial-orcad-template` | topic | fork-only (se puede proponer como perilla de build) | `ORCA_ORCAD_TEMPLATE_TARGETS` en el workflow (sin la variable verifica los 8 targets; uno desconocido corta el build) | – |
-| `feat/persistent-browser-profile` | topic | proponer | `ORCA_BROWSER_PROFILE_DIR` (absoluta, 0700, propia, ≤ 80 bytes) | lanzador `orca-electron-persistent`, lista de validadas y chequeo de contrato de `orca-ctl browser` |
-| `feat/stt-remote-endpoint` (comportamiento: [addendum](fork/addenda/stt-dictado.md)) | topic | fork-only por ahora | Settings > Voice o `orca-ctl speech remote` (`~/.orca/remote-stt-endpoint.json`); `ORCA_SPEECH_MODEL` fija el modelo de dictado del host (`orca-ctl speech pin`; sin la variable, como upstream; un id inválido corta el dictado) | – |
-| `fix/markdown-footnotes` | topic | proponer | – | – |
-| `fork/release-identity` | topic | fork-only | el sello que escribe `hub-release.yml` (`src/shared/fork-build-stamp.ts`: versión `X.Y.Z-hub.N`, que tiene que ser de la `X.Y.Z` de `package.json`, y repo); sin sello, como upstream. La release lleva `latest-linux.yml` con esa versión | – |
+| Entrada                                                                              | Tipo  | Upstream                                            | Parametrización                                                                                                                                                                                                                            | Retira                                                                                              |
+| ------------------------------------------------------------------------------------ | ----- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `fork/tooling`                                                                       | topic | fork-only                                           | –                                                                                                                                                                                                                                          | –                                                                                                   |
+| `fork/partial-orcad-template`                                                        | topic | fork-only (se puede proponer como perilla de build) | `ORCA_ORCAD_TEMPLATE_TARGETS` en el workflow (sin la variable verifica los 8 targets; uno desconocido corta el build)                                                                                                                      | –                                                                                                   |
+| `feat/persistent-browser-profile`                                                    | topic | proponer                                            | `ORCA_BROWSER_PROFILE_DIR` (absoluta, 0700, propia, ≤ 80 bytes)                                                                                                                                                                            | lanzador `orca-electron-persistent`, lista de validadas y chequeo de contrato de `orca-ctl browser` |
+| `feat/stt-remote-endpoint` (comportamiento: [addendum](fork/addenda/stt-dictado.md)) | topic | fork-only por ahora                                 | Settings > Voice o `orca-ctl speech remote` (`~/.orca/remote-stt-endpoint.json`); `ORCA_SPEECH_MODEL` fija el modelo de dictado del host (`orca-ctl speech pin`; sin la variable, como upstream; un id inválido corta el dictado)          | –                                                                                                   |
+| `fix/markdown-footnotes`                                                             | topic | proponer                                            | –                                                                                                                                                                                                                                          | –                                                                                                   |
+| `fork/release-identity`                                                              | topic | fork-only                                           | el sello que escribe `hub-release.yml` (`src/shared/fork-build-stamp.ts`: versión `X.Y.Z-hub.N`, que tiene que ser de la `X.Y.Z` de `package.json`, y repo); sin sello, como upstream. La release lleva `latest-linux.yml` con esa versión | –                                                                                                   |
 
 Los temas cuyo comportamiento no se entiende solo con el código tienen un addendum en
 `fork/addenda/`. Explica qué hacen, cómo interactúan con upstream, cómo se operan en los
