@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareAppVersions } from './app-version'
+import { compareAppVersions } from './app-lifecycle/identity/app-version'
 import {
   FORK_BUILD,
   forkAwareAppVersion,

@@ -57,6 +57,7 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas corresponden a
     Es MIT, con libopus 1.6.1 (BSD), un solo módulo con el WASM embebido y sin scripts de
     instalación. El contenedor Ogg lo escribe el fork (`remote-stt-ogg-opus.ts`,
     RFC 7845).
+
   - **Un stream por tramo:** la librería no tiene un reset síncrono, así que se tiene
     siempre un codificador de repuesto creado de antemano. Si el repuesto no llegó a
     estar listo, el tramo siguiente continúa el stream anterior.
@@ -92,13 +93,13 @@ comportamiento de upstream y cómo se opera en un hub. Las rutas corresponden a
 mandan el audio al host al que están conectados.** El modelo no depende del proyecto ni
 del hub donde vive la terminal.
 
-| Dónde se dicta | Quién transcribe | Con qué modelo | Adónde va el audio |
-|---|---|---|---|
-| App de escritorio, en un proyecto local | El escritorio | El de Settings > Voice del escritorio | Nada sale de la máquina (local), a OpenAI o al servidor remoto del escritorio |
-| App de escritorio, en una terminal o agente de **cualquier hub** | El escritorio, igual que arriba | El mismo | Igual que arriba. **Al hub llega texto**, como si se hubiera tipeado |
-| Teléfono emparejado con un hub | Ese hub | El modelo del hub (o el fijado) | Teléfono → hub → según el modelo del hub |
-| Teléfono emparejado con el escritorio | El escritorio | El del escritorio | Teléfono → escritorio → según su modelo |
-| Cliente web abierto contra un hub | Ese hub | El del hub (`followHostVoiceSettings`) | Navegador → hub → según su modelo |
+| Dónde se dicta                                                   | Quién transcribe                | Con qué modelo                         | Adónde va el audio                                                            |
+| ---------------------------------------------------------------- | ------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------- |
+| App de escritorio, en un proyecto local                          | El escritorio                   | El de Settings > Voice del escritorio  | Nada sale de la máquina (local), a OpenAI o al servidor remoto del escritorio |
+| App de escritorio, en una terminal o agente de **cualquier hub** | El escritorio, igual que arriba | El mismo                               | Igual que arriba. **Al hub llega texto**, como si se hubiera tipeado          |
+| Teléfono emparejado con un hub                                   | Ese hub                         | El modelo del hub (o el fijado)        | Teléfono → hub → según el modelo del hub                                      |
+| Teléfono emparejado con el escritorio                            | El escritorio                   | El del escritorio                      | Teléfono → escritorio → según su modelo                                       |
+| Cliente web abierto contra un hub                                | Ese hub                         | El del hub (`followHostVoiceSettings`) | Navegador → hub → según su modelo                                             |
 
 - **Escritorio** (`DictationController.tsx`): lee `voice.sttModel` de su propia
   configuración y transcribe por IPC en su propio proceso (`window.api.speech`). No hay

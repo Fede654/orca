@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SpeechSegmentProgressEvent } from '../../../../shared/speech-types'
+import type { SpeechSegmentProgressEvent } from '../../../../shared/speech/speech-types'
 import { dictationSegmentCue } from './dictation-segment-cue'
 
 const progress = (silenceMs: number, segmentMs: number): SpeechSegmentProgressEvent => ({
