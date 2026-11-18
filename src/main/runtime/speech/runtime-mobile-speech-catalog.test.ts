@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SPEECH_MODEL_PIN_ENV } from '../../speech/speech-model-pin'
-import { getDefaultVoiceSettings } from '../../../shared/constants'
+import { getDefaultVoiceSettings } from '../../../shared/orca-profiles/constants'
 import type { SpeechModelState, VoiceSettings } from '../../../shared/speech/speech-types'
 import { SPEECH_MODEL_CATALOG } from '../../speech/model-catalog'
 import {
