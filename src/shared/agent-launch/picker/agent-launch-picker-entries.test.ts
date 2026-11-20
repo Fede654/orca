@@ -6,7 +6,7 @@ import type { TuiAgent } from '../catalog/tui-agent'
 // The catalog order interleaves agents this host has with ones it lacks.
 const hostRows: NewTabAgentMenuRow[] = [
   { kind: 'chat', agent: 'codex' },
-  { kind: 'chat', agent: 'opencode', setup: true },
+  { kind: 'chat-unavailable', agent: 'opencode', reason: 'not-installed' },
   { kind: 'chat-unavailable', agent: 'grok', reason: 'not-installed' },
   { kind: 'cli', agent: 'claude' },
   { kind: 'terminal', agent: 'antigravity' },

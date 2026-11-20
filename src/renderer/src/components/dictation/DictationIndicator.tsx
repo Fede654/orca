@@ -293,7 +293,14 @@ export function DictationPillFinishButton({
   )
 }
 
-function DictationPill({ captureLive, anchor, failure, queued, cleanup, sessionId }: DictationIndicatorProps) {
+function DictationPill({
+  captureLive,
+  anchor,
+  failure,
+  queued,
+  cleanup,
+  sessionId
+}: DictationIndicatorProps) {
   const t = useTranslate()
   const dictationState = useAppStore((state) => state.dictationState)
   const liveText = useAppStore((state) => state.liveText)
@@ -337,6 +344,7 @@ function DictationPill({ captureLive, anchor, failure, queued, cleanup, sessionI
   const cancelLabel = cleaning
     ? t('components.dictation.DictationIndicator.skipCleanup', 'Skip cleanup')
     : t('auto.components.dictation.DictationIndicator.cancel', 'Cancel')
+  const shortcut = useShortcutKeyDetails('voice.dictation')
   const finishLabel = t('auto.components.dictation.DictationIndicator.finish', 'Finish')
   const cue = dictationSegmentCue(segmentProgress)
   const cueLabel = cue
