@@ -455,3 +455,68 @@ cambios de GitHub. Modo histórico no puede publicar.
 ausente, SERIES alterna con backport, backport con hash coincidente, metadata
 sin commit, ref movida entre consulta/fetch y candidato publicable con pérdida
 de contenido. Cada rechazo comprueba que integración y tags siguen intactos.
+
+## Coordinación durable de releases (sin efectos externos)
+
+`python3 fork/release-ledger.py --db /ruta/fuera/del/checkout/releases.sqlite`
+usa exclusivamente SQLite/Python estándar; no ejecuta git, GitHub, pushes,
+tags, builds ni reintentos. La ruta es obligatoria y no puede estar dentro de
+un checkout. Usar disco local del host coordinador, nunca NFS/una copia
+sincronizada del archivo. Mantener directorio privado y backups SQLite
+consistentes; la herramienta no guarda credenciales. No pasar secretos como
+owner, IDs o nombres: esos campos son metadatos de coordinación.
+
+Comandos (todos devuelven JSON; un rechazo devuelve exit 1):
+
+```sh
+python3 fork/release-ledger.py --db /var/lib/orky/releases.sqlite register \
+  --repo stablyai/orca --release-id 123 --tag v1.4.266 --commit COMMIT_UPSTREAM
+python3 fork/release-ledger.py --db /var/lib/orky/releases.sqlite claim \
+  --repo stablyai/orca --release-id 123 --owner orky --ttl 300
+python3 fork/release-ledger.py --db /var/lib/orky/releases.sqlite get \
+  --repo stablyai/orca --release-id 123
+python3 fork/release-ledger.py --db /var/lib/orky/releases.sqlite list
+```
+
+`register` es idempotente por identidad exacta. ReleaseId/tag/commit no pueden
+cambiar; reutilizar tag con otro releaseId también se rechaza. `claim` hace
+BEGIN IMMEDIATE, reclama todo el repo (no solo esa release), incrementa fence
+y version, y devuelve lease con token único. Incluso el mismo owner no puede
+reclamar dos veces un lease vigente. Guardar el recibo; una respuesta perdida
+se inspecciona con `get`, no se interpreta como permiso para actuar de nuevo.
+
+`transition` requiere repo/release-id/owner/token/fence/version/state. Leer
+version del recibo o `get`; una versión vieja falla por CAS. `renew` y `release`
+requieren las mismas credenciales de lease (sin version); renew acepta ttl.
+Lease expirado/token/fence antiguo no puede transicionar, renovar ni liberar,
+aunque el nuevo titular tenga el mismo nombre. TTL máximo: una hora.
+
+La transición normal es discovered -> preparing -> review-required -> tagged
+-> building -> linux-published -> macos-pending -> complete. Desde building o
+linux-published se puede completar directamente si la evidencia externa prueba
+que todos los assets están publicados. `failed` guarda la etapa previa y solo
+puede regresar a esa etapa; no reinicia el pipeline. `complete` es terminal.
+Campos opcionales: --integration-commit, --fork-tag, --run-id, --attempt.
+Los tres primeros no pueden reemplazarse una vez registrados; attempt solo
+crece. Para tagged hacen falta integración/tag; para building y posteriores,
+runId y attempt positivo. Linux publicado nunca vuelve a construir Linux.
+macOS conserva runId/tag/commit y solo actualiza attempt: capacidad insuficiente
+no genera una versión nueva. La herramienta registra evidencia del operador,
+no verifica por sí sola los assets de GitHub.
+
+Antes de un efecto externo autorizado, usar una transición (incluso a la misma
+etapa) con --intent-id ID_UNICO --intent-kind tag-push|build-start|macos-retry.
+Solo hay una intención pendiente; persiste al cerrar/reabrir, al fallar o al
+liberar el lease. Tras reinicio: consultar, adquirir/recuperar lease válido,
+comparar la intención con refs/releases/runs externos usando las herramientas
+autorizadas y resolver con --resolve-intent ID en la misma transacción que
+registra tag/run/attempt/estado comprobados. No completar con intención pendiente.
+No existe transacción distribuida con GitHub: lease/fencing impiden escrituras
+obsoletas en SQLite, pero cualquier futuro ejecutor de efectos externos deberá
+respetar los tokens, comprobar estado remoto y no repetir un push a ciegas.
+
+Validación: `PYTHONDONTWRITEBYTECODE=1 python3 fork/release-ledger.test.py`.
+Incluye dos procesos reclamando releases distintas del mismo repo, expiración
+y fence viejo, owner repetido y CAS obsoleto, identidad cambiada, rollback,
+reinicio con intención pendiente y conservación del run/tag para macOS.
+No hay detector, scheduler ni webhook; su autorización sigue separada.
