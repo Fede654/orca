@@ -12,6 +12,7 @@ parser.add_argument('--plan', required=True)
 parser.add_argument('--base', required=True)
 parser.add_argument('--series', required=True)
 parser.add_argument('--ref')
+parser.add_argument('--revision', default='HEAD')
 parser.add_argument('--remote', default='pr-fede654-orca')
 args = parser.parse_args()
 plan = json.loads(Path(args.plan).read_text())
@@ -65,7 +66,7 @@ if args.phase == 'refs':
                 fail(f'local {name} shadows reviewed remote; do not integrate it')
 else:
     for name, expected in plan['retainedFiles'].items():
-        result = subprocess.run(['git', '-C', args.root, 'show', 'HEAD:' + name], capture_output=True)
+        result = subprocess.run(['git', '-C', args.root, 'show', args.revision + ':' + name], capture_output=True)
         if result.returncode or hashlib.sha256(result.stdout).hexdigest() != expected:
             fail(f'retained adjustment changed or missing: {name}; review its new content explicitly')
 print('integration plan: ' + args.phase + ' verified')

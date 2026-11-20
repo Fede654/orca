@@ -438,3 +438,20 @@ Si se demuestra que la restauración global es la causa, la corrección mínima
 sería capturar/restaurar explícitamente política y estados con rechazo de cambios
 concurrentes, en revisión separada con evidencia del proveedor. Mientras tanto
 no se usa --sync-main durante una publicación.
+
+### Barreras revisadas del PR #2
+
+El plan y verificador son obligatorios, también para `--publish`. Se valida el
+SHA-256 de los bytes del archivo SERIES realmente consumido (`FORK_SERIES`
+incluido); esquema distinto y entradas no soportadas, incluidos backports en
+este esquema exclusivamente de temas, se rechazan explícitamente. No se ignoran.
+Las refs se vuelven a comprobar tras fetch y los picks usan el SHA fijado, no
+el nombre mutable. Metadata dirty/untracked se rechaza; HEAD y metadata se
+recomprueban antes de archivarlos. Publicar requiere candidato con archivos
+retenidos, metadata revisada y reproducción dry-run exacta antes de push o
+cambios de GitHub. Modo histórico no puede publicar.
+
+`python3 fork/integration-guard.test.py` ejercita rechazos reales por plan
+ausente, SERIES alterna con backport, backport con hash coincidente, metadata
+sin commit, ref movida entre consulta/fetch y candidato publicable con pérdida
+de contenido. Cada rechazo comprueba que integración y tags siguen intactos.
