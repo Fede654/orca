@@ -93,7 +93,18 @@ export async function prepareElectronSidecarProfile(
   if (configured && !isAbsolute(configured)) {
     throw new Error('ORCA_BROWSER_PROFILE_DIR must be an absolute path')
   }
-  const profilePath = configured ? resolve(configured) : join(orcadUserDataPath, PERSISTENT_PROFILE_DIRECTORY)
+  const profilePath = configured
+    ? resolve(configured)
+    : join(orcadUserDataPath, PERSISTENT_PROFILE_DIRECTORY)
+  if (configured && process.platform !== 'win32' && Buffer.byteLength(profilePath) > 80) {
+    throw new Error('ORCA_BROWSER_PROFILE_DIR must be at most 80 bytes')
+  }
+  if (configured) {
+    await mkdir(profilePath, { recursive: true, mode: 0o700 })
+    if (!isSafeOwnedDirectory(await lstat(profilePath))) {
+      throw new Error('ORCA_BROWSER_PROFILE_DIR must be owned with mode 0700, not a symlink')
+    }
+  }
   if (!(await isUsablePersistentProfile(profilePath))) {
     return { path: await createElectronSidecarProfile(orcadUserDataPath), persistent: false }
   }
