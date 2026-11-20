@@ -497,7 +497,7 @@ linux-published se puede completar directamente si la evidencia externa prueba
 que todos los assets están publicados. `failed` guarda la etapa previa y solo
 puede regresar a esa etapa; no reinicia el pipeline. `complete` es terminal.
 Campos opcionales: --integration-commit, --fork-tag, --run-id, --attempt.
-Los tres primeros no pueden reemplazarse una vez registrados; attempt solo
+Los tres primeros no pueden reemplazarse dentro del candidato; attempt solo
 crece. Para tagged hacen falta integración/tag; para building y posteriores,
 runId y attempt positivo. Linux publicado nunca vuelve a construir Linux.
 macOS conserva runId/tag/commit y solo actualiza attempt: capacidad insuficiente
@@ -520,3 +520,37 @@ Incluye dos procesos reclamando releases distintas del mismo repo, expiración
 y fence viejo, owner repetido y CAS obsoleto, identidad cambiada, rollback,
 reinicio con intención pendiente y conservación del run/tag para macOS.
 No hay detector, scheduler ni webhook; su autorización sigue separada.
+
+
+### Correcciones de código: generaciones de candidatos
+
+La identidad upstream sigue siendo una sola e inmutable. Cada release tiene
+una generación activa, numerada desde 1. `history --repo ... --release-id ...`
+devuelve las generaciones archivadas y la activa, en orden. Al cambiar de
+candidato se archiva una instantánea completa del anterior en una tabla
+append-only: estado fallido, commit, tag, run, attempt, version e intención.
+No se borran ni se reescriben las generaciones anteriores.
+
+`candidate` requiere las mismas credenciales de lease y CAS que transition,
+más --integration-commit COMMIT_CORREGIDO --fork-tag TAG_NUEVO --reviewed.
+Solo se acepta sobre un candidato failed con commit/tag registrados, sin
+intención pendiente y con un commit distinto no usado antes en esa release.
+--reviewed es una declaración del coordinador tras revisión, no una consulta
+automática a GitHub. El tag debe ser nuevo en todo el repo, tanto en registros
+activos como archivados. El nuevo candidato comienza en preparing, incrementa
+generation y version, conserva identidad upstream y reinicia run/attempt/estado
+Linux para su código nuevo. El run nuevo tampoco puede pertenecer a otro
+candidato. La renovación no mueve el lease ni cambia el fence del titular.
+
+Ejemplo: hub.1 falla por código, se revisa un commit corregido y se crea hub.2
+con `candidate`; las transiciones siguientes registran su run nuevo hasta
+complete. hub.1 permanece en history como failed. Una cancelación por capacidad
+con el mismo commit no permite candidate, aunque se proponga otro tag:
+reanudar la etapa previa del mismo candidato y aumentar attempt sobre el mismo
+run. Tampoco se puede reciclar un commit o tag de generaciones anteriores.
+
+Antes de cambiar de candidato, cualquier efecto incierto debe reconciliarse
+con --resolve-intent; cerrar/reabrir SQLite o perder el lease no elimina esa
+intención. La migración transaccional de esquema 1 a 2 conserva la generación
+original como 1 y crea el historial sin borrar datos. La unicidad entre tabla
+activa e historial se comprueba dentro del mismo BEGIN IMMEDIATE.
