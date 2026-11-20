@@ -33,7 +33,7 @@ class Ledger:
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.db = sqlite3.connect(path, timeout=15, isolation_level=None)
         self.db.row_factory = sqlite3.Row
-        if self.db.execute('PRAGMA user_version').fetchone()[0] not in (0, 1):
+        if self.db.execute('PRAGMA user_version').fetchone()[0] not in (0, 1, 2):
             self.db.close()
             raise LedgerError('unsupported ledger schema version')
         self.db.execute('PRAGMA foreign_keys=ON')
@@ -53,8 +53,21 @@ class Ledger:
               repo TEXT PRIMARY KEY, release_id TEXT, owner TEXT, token TEXT,
               fence INTEGER NOT NULL DEFAULT 0, expires REAL NOT NULL DEFAULT 0
             );
-            PRAGMA user_version=1;
+            CREATE TABLE IF NOT EXISTS candidate_history (
+              repo TEXT NOT NULL, release_id TEXT NOT NULL, generation INTEGER NOT NULL,
+              integration_commit TEXT, fork_tag TEXT, run_id TEXT, snapshot TEXT NOT NULL,
+              PRIMARY KEY(repo,release_id,generation), UNIQUE(repo,fork_tag), UNIQUE(repo,run_id)
+            );
         ''')
+
+        def migrate():
+            columns = {row['name'] for row in self.db.execute('PRAGMA table_info(releases)')}
+            if 'generation' not in columns:
+                self.db.execute('ALTER TABLE releases ADD COLUMN generation INTEGER NOT NULL DEFAULT 1')
+            self.db.execute('CREATE UNIQUE INDEX IF NOT EXISTS release_candidate_tag ON releases(repo,fork_tag) WHERE fork_tag IS NOT NULL')
+            self.db.execute('CREATE UNIQUE INDEX IF NOT EXISTS release_candidate_run ON releases(repo,run_id) WHERE run_id IS NOT NULL')
+            self.db.execute('PRAGMA user_version=2')
+        self.transaction(migrate)
 
     def close(self):
         self.db.close()
@@ -127,6 +140,8 @@ class Ledger:
                 if value is not None:
                     if not value.strip() or (row[field] is not None and row[field] != value):
                         raise LedgerError(field + ' cannot be replaced')
+                    if field in ('fork_tag', 'run_id'):
+                        self.ensure_unused(repo, field, value, release_id)
                     row[field] = value
             attempt = changes.get('attempt')
             if attempt is not None:
@@ -160,6 +175,42 @@ class Ledger:
             return self.get(repo, release_id)
         return self.transaction(operation)
 
+    def history(self, repo, release_id):
+        return self.transaction(lambda: [json.loads(row['snapshot']) for row in self.db.execute(
+            'SELECT snapshot FROM candidate_history WHERE repo=? AND release_id=? ORDER BY generation',
+            (repo, release_id))] + [self.get(repo, release_id)])
+
+    def ensure_unused(self, repo, field, value, release_id):
+        archived = self.db.execute('SELECT 1 FROM candidate_history WHERE repo=? AND ' + field + '=?', (repo, value)).fetchone()
+        active = self.db.execute('SELECT 1 FROM releases WHERE repo=? AND ' + field + '=? AND release_id<>?', (repo, value, release_id)).fetchone()
+        if archived or active:
+            raise LedgerError(field + ' already belongs to another candidate')
+
+    def candidate(self, repo, release_id, owner, token, fence, version, integration_commit, fork_tag, reviewed):
+        def operation():
+            self.authorize(repo, release_id, owner, token, fence)
+            row = self.get(repo, release_id)
+            if row['version'] != version:
+                raise LedgerError('CAS version mismatch')
+            if row['intent_id'] is not None:
+                raise LedgerError('reconcile pending intent before changing candidate')
+            if not reviewed or row['state'] != 'failed' or not row['integration_commit'] or not row['fork_tag']:
+                raise LedgerError('new candidate requires reviewed code correction to a failed candidate')
+            if not integration_commit.strip() or integration_commit == row['integration_commit']:
+                raise LedgerError('same code commit must reuse the existing candidate and run')
+            prior = self.db.execute('SELECT 1 FROM candidate_history WHERE repo=? AND release_id=? AND integration_commit=?', (repo, release_id, integration_commit)).fetchone()
+            if prior:
+                raise LedgerError('code commit already has a candidate')
+            if not fork_tag.strip() or fork_tag == row['fork_tag']:
+                raise LedgerError('new candidate requires an unused fork tag')
+            self.ensure_unused(repo, 'fork_tag', fork_tag, release_id)
+            self.db.execute('INSERT INTO candidate_history(repo,release_id,generation,integration_commit,fork_tag,run_id,snapshot) VALUES(?,?,?,?,?,?,?)',
+                (repo, release_id, row['generation'], row['integration_commit'], row['fork_tag'], row['run_id'], json.dumps(row, sort_keys=True)))
+            self.db.execute("UPDATE releases SET generation=generation+1,version=version+1,state='preparing',integration_commit=?,fork_tag=?,run_id=NULL,attempt=0,linux_published=0,resume_state=NULL WHERE repo=? AND release_id=? AND version=?",
+                (integration_commit, fork_tag, repo, release_id, version))
+            return self.get(repo, release_id)
+        return self.transaction(operation)
+
     def lease_action(self, repo, release_id, owner, token, fence, ttl=None):
         def operation():
             self.authorize(repo, release_id, owner, token, fence)
@@ -178,20 +229,25 @@ def main():
     parser.add_argument('--db', required=True, help='SQLite path outside any checkout; local filesystem only')
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('list')
-    for command in ('register', 'get', 'claim', 'transition', 'renew', 'release'):
+    for command in ('register', 'get', 'history', 'claim', 'transition', 'candidate', 'renew', 'release'):
         sub = commands.add_parser(command)
         sub.add_argument('--repo', required=True)
         sub.add_argument('--release-id', required=True)
         if command == 'register':
             sub.add_argument('--tag', required=True)
             sub.add_argument('--commit', required=True)
-        if command in ('claim', 'transition', 'renew', 'release'):
+        if command in ('claim', 'transition', 'candidate', 'renew', 'release'):
             sub.add_argument('--owner', required=True)
         if command in ('claim', 'renew'):
             sub.add_argument('--ttl', type=float, default=300)
-        if command in ('transition', 'renew', 'release'):
+        if command in ('transition', 'candidate', 'renew', 'release'):
             sub.add_argument('--token', required=True)
             sub.add_argument('--fence', type=int, required=True)
+        if command == 'candidate':
+            sub.add_argument('--version', type=int, required=True)
+            sub.add_argument('--integration-commit', required=True)
+            sub.add_argument('--fork-tag', required=True)
+            sub.add_argument('--reviewed', action='store_true', required=True)
         if command == 'transition':
             sub.add_argument('--version', type=int, required=True)
             sub.add_argument('--state', required=True, choices=STATES)
