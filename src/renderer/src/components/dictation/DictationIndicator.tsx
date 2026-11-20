@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { ShortcutKeyCombo } from '@/components/ui/ShortcutKeyCombo'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -11,7 +11,9 @@ import { ArrowUp, Check, CornerDownLeft, Loader2 } from 'lucide-react'
 import { isDictationPillShown } from './dictation-session-machine'
 import { dictationSeparators } from '../../../../shared/speech/dictation/dictation-transcript-spacing'
 import { CLOUD_DICTATION_MAX_SECONDS } from '../../../../shared/rpc-contract/speech/speech-params'
+import type { SpeechSegmentProgressEvent } from '../../../../shared/speech/speech-types'
 import { dispatchDictationControl } from './dictation-control-events'
+import { dictationSegmentCue } from './dictation-segment-cue'
 import { DictationGrapes } from './DictationGrapes'
 import { useDictationMeter } from './dictation-meter-store'
 import type { DictationPillAnchor } from './dictation-pill-anchor'
@@ -27,10 +29,16 @@ import { DictationCleanupNoticePill } from './DictationCleanupNoticePill'
 
 // The finish button turns into a spinner only when finishing is slow enough to notice.
 const FINISH_SPINNER_DELAY_MS = 200
+// Each cut blinks the cue colour twice, then fades back to the base button.
+const CUT_BLINK_MS = 400
+const CUT_FADE_MS = 80
+// Speech resuming before a cut drops the cue at once, so word gaps don't linger.
+const CUE_RELEASE_MS = 50
 // The timer warns a minute before cloud dictation stops.
 const CLOUD_LIMIT_WARNING_SECONDS = CLOUD_DICTATION_MAX_SECONDS - 60
 
 type DictationIndicatorProps = {
+  sessionId?: string | null
   /** The mic is recording (and buffering) while the speech engine is still starting. */
   captureLive: boolean
   anchor: DictationPillAnchor | null
@@ -144,6 +152,45 @@ function useDelayedFlag(on: boolean, delayMs: number): boolean {
   return delayed
 }
 
+function blinkCut(button: HTMLButtonElement, reason: 'pause' | 'limit'): void {
+  const style = getComputedStyle(button)
+  const peak = style.getPropertyValue(reason === 'limit' ? '--destructive' : '--status-warning')
+  const base = style.getPropertyValue('--primary')
+  const blinkEnd = CUT_BLINK_MS / (CUT_BLINK_MS + CUT_FADE_MS)
+  button.animate(
+    [
+      { backgroundColor: peak, offset: 0 },
+      { backgroundColor: peak, offset: 0.3 * blinkEnd },
+      { backgroundColor: base, offset: 0.45 * blinkEnd },
+      { backgroundColor: peak, offset: 0.7 * blinkEnd },
+      { backgroundColor: peak, offset: blinkEnd, easing: 'ease-out' },
+      { backgroundColor: base, offset: 1 }
+    ],
+    { duration: CUT_BLINK_MS + CUT_FADE_MS }
+  )
+}
+
+function useSegmentProgress(
+  sessionId: string | null,
+  finishButtonRef: RefObject<HTMLButtonElement | null>
+): SpeechSegmentProgressEvent | null {
+  const [progress, setProgress] = useState<SpeechSegmentProgressEvent | null>(null)
+  useEffect(() => {
+    if (!sessionId) {
+      return
+    }
+    return window.api.speech.onSegmentProgress((event) => {
+      if (event.sessionId === sessionId) {
+        setProgress(event)
+        if (event.cutReason && finishButtonRef.current) {
+          blinkCut(finishButtonRef.current, event.cutReason)
+        }
+      }
+    })
+  }, [sessionId, finishButtonRef])
+  return progress?.sessionId === sessionId ? progress : null
+}
+
 // Only this re-renders per meter tick, not the whole pill.
 function DictationPillMeter({ recording, status }: { recording: boolean; status: string }) {
   const t = useTranslate()
@@ -246,12 +293,21 @@ export function DictationPillFinishButton({
   )
 }
 
-function DictationPill({ captureLive, anchor, failure, queued, cleanup }: DictationIndicatorProps) {
+function DictationPill({
+  captureLive,
+  anchor,
+  failure,
+  queued,
+  cleanup,
+  sessionId
+}: DictationIndicatorProps) {
   const t = useTranslate()
   const dictationState = useAppStore((state) => state.dictationState)
   const liveText = useAppStore((state) => state.liveText)
   const isHoldMode = useAppStore((state) => state.settings?.voice?.dictationMode === 'hold')
   const cloudModel = useIsCloudModel()
+  const finishButtonRef = useRef<HTMLButtonElement>(null)
+  const segmentProgress = useSegmentProgress(sessionId ?? null, finishButtonRef)
 
   const finishing = dictationState === 'stopping'
   const recording = dictationState === 'listening' || (dictationState === 'starting' && captureLive)
@@ -288,7 +344,15 @@ function DictationPill({ captureLive, anchor, failure, queued, cleanup }: Dictat
   const cancelLabel = cleaning
     ? t('components.dictation.DictationIndicator.skipCleanup', 'Skip cleanup and insert as heard')
     : t('auto.components.dictation.DictationIndicator.cancel', 'Cancel')
+  const shortcut = useShortcutKeyDetails('voice.dictation')
   const finishLabel = t('auto.components.dictation.DictationIndicator.finish', 'Finish')
+  const cue = dictationSegmentCue(segmentProgress)
+  const cueLabel = cue
+    ? cue.kind === 'limit'
+      ? t('auto.components.dictation.DictationIndicator.forcedCut', 'Forced cut approaching')
+      : t('auto.components.dictation.DictationIndicator.pauseCut', 'Pause cut approaching')
+    : null
+  const cueColor = cue?.kind === 'limit' ? 'var(--destructive)' : 'var(--status-warning)'
 
   return (
     <DictationPillShell
@@ -336,7 +400,35 @@ function DictationPill({ captureLive, anchor, failure, queued, cleanup }: Dictat
               )}
             </span>
           ) : (
-            <DictationPillFinishButton label={finishLabel} showShortcut={!isHoldMode} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  ref={finishButtonRef}
+                  type="button"
+                  size="icon-xs-round"
+                  aria-label={cueLabel ? `${finishLabel}. ${cueLabel}` : finishLabel}
+                  onClick={() => dispatchDictationControl('stop')}
+                  style={
+                    cue
+                      ? {
+                          backgroundColor: `color-mix(in srgb, ${cueColor} ${cue.mixPercent}%, var(--primary))`
+                        }
+                      : { transitionDuration: `${CUE_RELEASE_MS}ms` }
+                  }
+                >
+                  <Check className="size-3.5" strokeWidth={2.5} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={4}>
+                <span className="flex items-center gap-1.5">
+                  {finishLabel}
+                  {cueLabel ? <span className="text-muted-foreground">· {cueLabel}</span> : null}
+                  {!isHoldMode && shortcut.keys.length > 0 ? (
+                    <ShortcutKeyCombo keys={shortcut.keys} doubleTap={shortcut.doubleTap} />
+                  ) : null}
+                </span>
+              </TooltipContent>
+            </Tooltip>
           )}
         </>
       )}

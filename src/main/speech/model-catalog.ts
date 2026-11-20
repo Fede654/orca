@@ -16,6 +16,17 @@ const legacy = (id: Parameters<typeof getSpeechModelDownloadMetadata>[0]) => ({
 
 export const SPEECH_MODEL_CATALOG: SpeechModelManifest[] = [
   {
+    id: 'remote-parakeet-tdt-0.6b-v3',
+    label: 'Remote Parakeet TDT v3',
+    type: 'openai',
+    provider: 'openai-compatible',
+    language: 'multilingual',
+    dictationLanguages: DICTATION_LANGUAGES,
+    languages: DICTATION_LANGUAGES,
+    sampleRate: 16000,
+    streaming: false
+  },
+  {
     id: 'parakeet-tdt-0.6b-v3-int8',
     label: 'Parakeet TDT v3',
     type: 'transducer',
