@@ -521,7 +521,6 @@ y fence viejo, owner repetido y CAS obsoleto, identidad cambiada, rollback,
 reinicio con intención pendiente y conservación del run/tag para macOS.
 No hay detector, scheduler ni webhook; su autorización sigue separada.
 
-
 ### Correcciones de código: generaciones de candidatos
 
 La identidad upstream sigue siendo una sola e inmutable. Cada release tiene
