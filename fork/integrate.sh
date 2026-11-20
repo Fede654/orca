@@ -45,10 +45,28 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+SOURCE_COMMIT="$(git -C "$HERE" rev-parse HEAD)"
+PLAN="$HERE/integration-plan.json"
+VERIFIER="$HERE/verify-integration-plan.py"
+[ -r "$PLAN" ] && [ -r "$VERIFIER" ] || die "reviewed plan and verifier are required"
+[ -r "$SERIES" ] || die "reviewed series is required"
+git -C "$HERE" diff --quiet HEAD -- fork FORK.md || die "tooling metadata has uncommitted changes"
+[ -z "$(git -C "$HERE" ls-files --others --exclude-standard -- fork FORK.md)" ] || die "tooling metadata has untracked files"
+verify_plan() {
+  python3 "$VERIFIER" "$1" --root "${2:-$REPO}" --plan "$PLAN" \
+    --series "$SERIES" --base "${BASE:-canary}" --remote "$FORK" "${@:3}"
+}
 # Publica: ramas de la serie que tengamos locales, la rama destino, rama por defecto, tag y
 # guard. El tag tiene que apuntar a feat/integration: se publica lo que se revisó.
 publish() {
   local tag="$1" kind ref _up _note b branches=()
+  [ "${FORK_HISTORICAL:-0}" != 1 ] || die "historical mode cannot publish"
+  BASE="${tag%-hub.*}"
+  verify_plan refs
+  g diff --quiet "$tag^{commit}" "$(git -C "$HERE" rev-parse HEAD)" -- fork FORK.md \
+    || die "candidate metadata differs from reviewed preparation"
+  FORK_WORKTREE="$WT-publish-$$" FORK_VERIFY_TREE="$tag^{commit}" \
+    bash "$HERE/integrate.sh" "$BASE" --dry-run
   command -v gh >/dev/null || die "hace falta gh"
   g rev-parse -q --verify "refs/tags/$tag" >/dev/null || die "no existe el tag local $tag"
   [ "$(g rev-parse "$tag^{commit}")" = "$(g rev-parse "$DEST_BRANCH")" ] \
@@ -72,7 +90,11 @@ publish() {
       || g fetch -q "$FORK" "+refs/heads/$b:refs/remotes/$FORK/$b" 2>/dev/null || true
     expect="$(g rev-parse -q --verify "refs/remotes/$FORK/$b" || true)"
     lease+=("--force-with-lease=refs/heads/$b:$expect")
-    refs+=("refs/heads/$b:refs/heads/$b")
+    if [ "$b" = "$DEST_BRANCH" ]; then
+      refs+=("$(g rev-parse "$tag^{commit}"):refs/heads/$b")
+    else
+      refs+=("$(verify_plan pin "$REPO" --ref "$b"):refs/heads/$b")
+    fi
   done
   g push "${lease[@]}" "$FORK" "${refs[@]}"
   for b in "${branches[@]}" "$DEST_BRANCH"; do g update-ref "refs/remotes/$FORK/$b" "refs/heads/$b"; done
@@ -107,10 +129,7 @@ fi
 info "== fetch"
 g fetch -q "$UPSTREAM" main
 [ -n "$BASE" ] && g fetch -q "$UPSTREAM" tag "$BASE"
-if [ -f "$HERE/integration-plan.json" ]; then
-  python3 "$HERE/verify-integration-plan.py" refs --root "$REPO" \
-    --plan "$HERE/integration-plan.json" --base "${BASE:-canary}" --remote "$FORK"
-fi
+verify_plan refs
 UPMAIN="$UPSTREAM/main"
 if [ "$CANARY" -eq 1 ]; then BASE_REV="$(g rev-parse "$UPMAIN")"; BASE_NAME="$UPMAIN"
 else BASE_REV="$(g rev-parse "$BASE^{commit}")"; BASE_NAME="$BASE"; fi
@@ -118,9 +137,12 @@ else BASE_REV="$(g rev-parse "$BASE^{commit}")"; BASE_NAME="$BASE"; fi
 # Rama local si existe; si no, la del fork. Se trae solo esa rama: el fork espeja las
 # miles de ramas de upstream y un fetch completo sería enorme.
 resolve_branch() {
-  if g rev-parse -q --verify "refs/heads/$1" >/dev/null; then printf '%s' "$1"; return 0; fi
-  g fetch -q "$FORK" "+refs/heads/$1:refs/remotes/$FORK/$1" 2>/dev/null || return 1
-  printf '%s' "$FORK/$1"
+  g fetch -q "$FORK" "+refs/heads/$1:refs/remotes/$FORK/$1" || return 1
+  local pinned actual
+  pinned="$(verify_plan pin "$REPO" --ref "$1")" || return 1
+  actual="$(g rev-parse "refs/remotes/$FORK/$1")"
+  [ "$actual" = "$pinned" ] || die "resolved reference $1 moved after validation"
+  printf '%s' "$pinned"
 }
 
 g worktree add -q --detach "$WT" "$BASE_REV"
@@ -220,11 +242,12 @@ while IFS=$'\t' read -r kind ref up _note || [ -n "${kind:-}" ]; do
   esac
 done < "$SERIES"
 
-if [ -f "$HERE/integration-plan.json" ]; then
-  python3 "$HERE/verify-integration-plan.py" tree --root "$WT" \
-    --plan "$HERE/integration-plan.json" --base "$BASE"
+{
+  verify_plan tree "$WT"
   if [ "${FORK_HISTORICAL:-0}" != 1 ]; then
-    source_commit="$(git -C "$HERE" rev-parse HEAD)"
+    [ "$(git -C "$HERE" rev-parse HEAD)" = "$SOURCE_COMMIT" ] || die "preparation HEAD moved"
+    git -C "$HERE" diff --quiet "$SOURCE_COMMIT" -- fork FORK.md || die "tooling metadata changed during integration"
+    source_commit="$SOURCE_COMMIT"
     g archive "$source_commit" fork FORK.md | tar -x -C "$WT"
     w add fork FORK.md
     if ! w diff --cached --quiet; then
@@ -233,7 +256,7 @@ if [ -f "$HERE/integration-plan.json" ]; then
   elif [ "${FORK_VERIFY_TREE:-}" != "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["historicalTarget"])' "$HERE/integration-plan.json")" ]; then
     die "FORK_HISTORICAL requires FORK_VERIFY_TREE matching historicalTarget"
   fi
-fi
+}
 
 # Fuera los workflows de upstream: ni el tag ni la release disparan nada ajeno.
 mapfile -t wf < <(w ls-files .github/workflows | grep -vx "$KEEP_WORKFLOW" || true)
