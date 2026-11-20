@@ -1,4 +1,5 @@
-import { mkdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
 import { linuxNativeToolchainImage } from './linux/build-wayland-clipboard.mjs'
 import { pathToFileURL } from 'node:url'
@@ -14,6 +15,19 @@ const SERVER_TOOLCHAIN_IMAGES = {
   x64: 'quay.io/pypa/manylinux_2_28_x86_64@sha256:407f771c51a2c3e83ebe5a7970b4289ead3a6db21d9b9c089168775cad11d328',
   arm64:
     'quay.io/pypa/manylinux_2_28_aarch64@sha256:c22ffd129ac99a8a42d1f2c2f4e88a9089288dd9ee987a7092da1c7dc48f27a9'
+}
+
+export function desktopJournalFileLockFingerprint(root, arch) {
+  const hash = createHash('sha256').update(arch)
+  for (const file of [
+    'native/journal-file-lock/main.c',
+    'native/wayland-clipboard/Dockerfile',
+    'config/scripts/native-build/build-journal-file-lock.mjs',
+    'config/scripts/native-build/linux/build-wayland-clipboard.mjs'
+  ]) {
+    hash.update('\0').update(readFileSync(resolve(root, file)))
+  }
+  return hash.digest('hex')
 }
 
 export function buildJournalFileLock(
@@ -115,6 +129,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     resolve(
       'native/journal-file-lock/.build',
       process.platform === 'win32' ? 'journal-file-lock.exe' : 'journal-file-lock'
-    )
+    ),
+    process.arch,
+    { glibcFloor: process.argv.includes('--desktop-linux') ? 'desktop' : 'server' }
   )
 }
