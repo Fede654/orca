@@ -50,8 +50,8 @@ PLAN="$HERE/integration-plan.json"
 VERIFIER="$HERE/verify-integration-plan.py"
 [ -r "$PLAN" ] && [ -r "$VERIFIER" ] || die "reviewed plan and verifier are required"
 [ -r "$SERIES" ] || die "reviewed series is required"
-git -C "$HERE" diff --quiet HEAD -- fork FORK.md || die "tooling metadata has uncommitted changes"
-[ -z "$(git -C "$HERE" ls-files --others --exclude-standard -- fork FORK.md)" ] || die "tooling metadata has untracked files"
+git -C "$HERE/.." diff --quiet HEAD -- fork FORK.md || die "tooling metadata has uncommitted changes"
+[ -z "$(git -C "$HERE/.." ls-files --others --exclude-standard -- fork FORK.md)" ] || die "tooling metadata has untracked files"
 verify_plan() {
   python3 "$VERIFIER" "$1" --root "${2:-$REPO}" --plan "$PLAN" \
     --series "$SERIES" --base "${BASE:-canary}" --remote "$FORK" "${@:3}"
@@ -63,6 +63,7 @@ publish() {
   [ "${FORK_HISTORICAL:-0}" != 1 ] || die "historical mode cannot publish"
   BASE="${tag%-hub.*}"
   verify_plan refs
+  verify_plan tree "$REPO" --revision "$tag^{commit}"
   g diff --quiet "$tag^{commit}" "$(git -C "$HERE" rev-parse HEAD)" -- fork FORK.md \
     || die "candidate metadata differs from reviewed preparation"
   FORK_WORKTREE="$WT-publish-$$" FORK_VERIFY_TREE="$tag^{commit}" \
@@ -246,7 +247,7 @@ done < "$SERIES"
   verify_plan tree "$WT"
   if [ "${FORK_HISTORICAL:-0}" != 1 ]; then
     [ "$(git -C "$HERE" rev-parse HEAD)" = "$SOURCE_COMMIT" ] || die "preparation HEAD moved"
-    git -C "$HERE" diff --quiet "$SOURCE_COMMIT" -- fork FORK.md || die "tooling metadata changed during integration"
+    git -C "$HERE/.." diff --quiet "$SOURCE_COMMIT" -- fork FORK.md || die "tooling metadata changed during integration"
     source_commit="$SOURCE_COMMIT"
     g archive "$source_commit" fork FORK.md | tar -x -C "$WT"
     w add fork FORK.md
