@@ -99,6 +99,7 @@ fi
 [ "$DRY" -eq 1 ] && [ "$PUSH" -eq 1 ] && die "--dry-run no pushea"
 [ "$CANARY" -eq 1 ] && DRY=1
 [ -r "$SERIES" ] || die "no encuentro la serie: $SERIES"
+[ "${FORK_HISTORICAL:-0}" != 1 ] || [ "$DRY" -eq 1 ] || die "historical mode requires --dry-run"
 [ "$(g config --get rerere.enabled || true)" = "true" ] \
   || die "activá rerere en el repo: git -C $REPO config rerere.enabled true"
 [ ! -e "$WT" ] || die "$WT ya existe (¿integración a medias?). Revisalo y borralo con: git -C $REPO worktree remove --force $WT"
@@ -106,6 +107,10 @@ fi
 info "== fetch"
 g fetch -q "$UPSTREAM" main
 [ -n "$BASE" ] && g fetch -q "$UPSTREAM" tag "$BASE"
+if [ -f "$HERE/integration-plan.json" ]; then
+  python3 "$HERE/verify-integration-plan.py" refs --root "$REPO" \
+    --plan "$HERE/integration-plan.json" --base "${BASE:-canary}" --remote "$FORK"
+fi
 UPMAIN="$UPSTREAM/main"
 if [ "$CANARY" -eq 1 ]; then BASE_REV="$(g rev-parse "$UPMAIN")"; BASE_NAME="$UPMAIN"
 else BASE_REV="$(g rev-parse "$BASE^{commit}")"; BASE_NAME="$BASE"; fi
@@ -189,7 +194,7 @@ while IFS=$'\t' read -r kind ref up _note || [ -n "${kind:-}" ]; do
           ANNOTATION+="topic $ref via $adapted $(g rev-parse --short "$abr") [$up] ${#commits[@]} commits"$'\n'
           continue
         fi
-        info "  topic $ref: la adaptación $adapted es para otra base, se usa la rama de tema"
+        die "topic $ref: adaptación $adapted obsoleta para $BASE_NAME; preparar y revisar nueva adaptación"
         # Contra main (canario) la adaptación nunca aplica; sobre otro tag, ya caducó.
         [ "$CANARY" -eq 1 ] || WARN+="  - sacar de la serie la adaptación @$adapted de $ref y retirar la rama (no es para $BASE_NAME)"$'\n'
       fi
@@ -214,6 +219,21 @@ while IFS=$'\t' read -r kind ref up _note || [ -n "${kind:-}" ]; do
     *) die "tipo desconocido en la serie: '$kind'" ;;
   esac
 done < "$SERIES"
+
+if [ -f "$HERE/integration-plan.json" ]; then
+  python3 "$HERE/verify-integration-plan.py" tree --root "$WT" \
+    --plan "$HERE/integration-plan.json" --base "$BASE"
+  if [ "${FORK_HISTORICAL:-0}" != 1 ]; then
+    source_commit="$(git -C "$HERE" rev-parse HEAD)"
+    g archive "$source_commit" fork FORK.md | tar -x -C "$WT"
+    w add fork FORK.md
+    if ! w diff --cached --quiet; then
+      w commit -q -m "fork: carry reviewed integration plan and tooling metadata"
+    fi
+  elif [ "${FORK_VERIFY_TREE:-}" != "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["historicalTarget"])' "$HERE/integration-plan.json")" ]; then
+    die "FORK_HISTORICAL requires FORK_VERIFY_TREE matching historicalTarget"
+  fi
+fi
 
 # Fuera los workflows de upstream: ni el tag ni la release disparan nada ajeno.
 mapfile -t wf < <(w ls-files .github/workflows | grep -vx "$KEEP_WORKFLOW" || true)
