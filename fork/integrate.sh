@@ -225,6 +225,11 @@ if [ "${#wf[@]}" -gt 0 ]; then
 fi
 w ls-files --error-unmatch "$KEEP_WORKFLOW" >/dev/null 2>&1 || die "falta $KEEP_WORKFLOW en el resultado (¿fork/tooling no entró?)"
 
+if [ -n "${FORK_VERIFY_TREE:-}" ]; then
+  w diff --exit-code "$FORK_VERIFY_TREE" HEAD -- .
+  info "== árbol idéntico a $FORK_VERIFY_TREE: $(w rev-parse HEAD^{tree})"
+fi
+
 if [ "$DRY" -eq 1 ]; then
   info ""; info "OK (sin tag ni rama): la serie aplica sobre $BASE_NAME ($(w rev-list --count "$BASE_REV..HEAD") commits)."
   [ -z "$WARN" ] || printf 'avisos:\n%s' "$WARN"
