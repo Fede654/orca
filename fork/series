@@ -7,4 +7,5 @@ topic	fork/partial-orcad-template	fork-only	ORCA_ORCAD_TEMPLATE_TARGETS: el AppI
 topic	feat/persistent-browser-profile	proponer	ORCA_BROWSER_PROFILE_DIR: perfil persistente del sidecar Electron en headless
 topic	feat/stt-remote-endpoint	fork-only	STT remoto sobre el proveedor OpenAI-compatible de upstream: conserva el modelo y archivo del hub, ORCA_SPEECH_MODEL y tramos Ogg Opus
 topic	fix/markdown-footnotes	proponer	footnotes GFM en el editor Markdown
+topic	fix/agent-picker-launchable-first	PR #45594	picker de pestaña nueva: los agentes listos en el host primero, los que le faltan (instalar o no disponibles) después
 topic	fork/release-identity	fork-only	sello X.Y.Z-hub.N + repo (lo escribe hub-release.yml): About muestra el tag y el updater del escritorio sigue las releases del fork, nunca las de upstream
