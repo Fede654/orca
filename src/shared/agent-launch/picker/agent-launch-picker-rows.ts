@@ -58,7 +58,7 @@ export function agentMenuRowSupportsChat(row: NewTabAgentMenuRow): boolean {
 
 /** Launches the agent as it is on the host now: not a chat that installs it first, not an unavailable one. */
 export function agentMenuRowReady(row: NewTabAgentMenuRow): boolean {
-  return row.kind === 'cli' || row.kind === 'terminal' || (row.kind === 'chat' && !row.setup)
+  return row.kind === 'cli' || row.kind === 'terminal' || row.kind === 'chat'
 }
 
 export type NewTabAgentMenuSettings = NativeChatDefaultSettings &

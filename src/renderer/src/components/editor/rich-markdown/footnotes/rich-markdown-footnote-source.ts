@@ -1,7 +1,7 @@
 import {
   createMarkdownFenceRangeCursor,
   getMarkdownFenceRanges
-} from '../../markdown/source-scanning/markdown-fence-scanner'
+} from '../../../../../../shared/markdown/markdown-fence-scanner'
 
 export function matchRichMarkdownFootnoteDefinition(source: string) {
   const first = /^ {0,3}\[\^([^\]\s[]+)\]:[ \t]*([^\n]*)(?:\n|$)/.exec(source)

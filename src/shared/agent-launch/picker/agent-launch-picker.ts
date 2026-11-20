@@ -197,9 +197,9 @@ export function agentPickerEntriesFromRows(
   defaultAgent: TuiAgent | 'blank' | null | undefined
 ): AgentPickerEntry[] {
   // Why: rows are grouped by surface, so first appearance would rank every chat agent above every CLI one.
-  const entries = orderAgentLaunchPickerAgents(defaultAgent, [
+  const entries: AgentPickerEntry[] = orderAgentLaunchPickerAgents(defaultAgent, [
     ...new Set(rows.map((row) => row.agent))
-  ]).map((agent) => {
+  ]).map((agent): AgentPickerEntry => {
     const own = rows.filter((row) => row.agent === agent)
     const chatDefault = own.some((row) => row.kind === 'chat')
     const chat = own.some(agentMenuRowSupportsChat)
