@@ -349,3 +349,39 @@ el repositorio y luego restaura la política mediante un trap. Esto es una
 ruta que requiere investigación operativa, no prueba de causalidad. Antes
 de activar automatización, el propietario debe revisar registros de auditoría
 y otras sesiones que administran Actions. No habilitar workflows a ciegas.
+
+### Referencias remotas y próxima base
+
+`fork/native-build` apunta al commit upstream `b9d8a3f26f` (#45118), que ya
+contiene los exports de ambas huellas y el manejo de `--desktop-linux`.
+La adaptación histórica retiene exactamente nuestros dos arreglos publicados;
+el fallback canónico usa la implementación completa de upstream. Cuando la
+próxima release la incluya, el integrador la omitirá por estar incorporada.
+No se usa una rama local inexistente como fallback.
+
+La comprobación remota debe incluir las dos referencias de cada fila, aunque
+la adaptación histórica sea la seleccionada. No basta comprobar que existen
+localmente. La reproducción aislada usa un repositorio vacío y fetch explícito
+de las ramas publicadas, el tag y upstream main; no toma ramas de este workspace.
+
+Aún necesitan portar ajustes a la próxima base antes de integrar:
+
+- `persistent-browser-profile`: recuperación persistente de upstream más ruta
+  explícita, validación de longitud/permisos y pruebas finales de hub.3.
+- `stt-remote-endpoint`: imports reorganizados, registro de Opus en el archivo
+  de dependencias nuevo e integración del indicador con componentes upstream.
+- `markdown-footnotes`: el scanner compartido y los cambios del round-trip.
+- `agent-picker-launchable-first`: filas sin `setup` y anotaciones de tipos.
+- `release-identity`: imports y coordinación del instalador con upstream.
+- `partial-orcad-template`: conserva la opción de target sin revivir el test
+  que upstream eliminó.
+- `tooling`: la metadata nueva de este PR aún no está en el snapshot histórico.
+
+Para una nueva base, crear ramas `adapt/*-v<base>` desde ese tag, aplicar los
+cambios publicados de cada snapshot, resolver contra upstream y seleccionar
+esas ramas en una nueva preparación. El tooling de esa preparación debe
+incluir los selectores nuevos y `FORK_VERIFY_TREE`, sin modificar la adaptación
+histórica `adapt/tooling-v1.4.266`. La comparación de la próxima integración
+se hará contra su propia referencia revisada, no contra hub.3. Este PR deja
+reproducible el histórico y referencias válidas; no habilita integración
+autónoma de releases futuras.
