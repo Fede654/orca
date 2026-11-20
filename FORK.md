@@ -311,3 +311,41 @@ verifica; el fork trae el comportamiento.
   drop-in de `orca-serve`, con el mismo directorio de perfil de siempre.
 - Lo que siga siendo operativo (censo, backups, journal, reglas de reinicio) queda en
   `orca-ctl` y hub-ops; no se mete en el fuente de Orca.
+
+## Reproducción de v1.4.266-hub.3
+
+La preparación `Fede654/reconcile-fork-266` referencia ocho ramas
+`adapt/*-v1.4.266`, cada una basada directamente en `v1.4.266` y limitada a
+los archivos de su tema. Conservan el árbol publicado `8da9b6e323`, incluidos
+el picker #45594, las resoluciones de integración y los dos fixes del build
+nativo. La serie agrega `fork/native-build` para esos fixes. Las ramas de
+origen se conservan; las adaptaciones solo corresponden a esta base.
+
+Desde la rama de preparación, sin publicar ni mover `feat/integration`:
+
+```sh
+FORK_SERIES="$PWD/fork/series" FORK_WORKTREE=/tmp/orca-reproduce-266 \
+  FORK_VERIFY_TREE=8da9b6e323 bash fork/integrate.sh v1.4.266 --dry-run
+```
+
+La ejecución comprobada produjo nueve commits (ocho temas y eliminación de
+77 workflows) y el árbol exacto
+`c9dff7cc3acf908a5dd6665837f89bcd6f07c6b1`. No hubo diferencias de archivos.
+`FORK_VERIFY_TREE` compara antes de limpiar el destino temporal y aborta ante
+cualquier diferencia. La preparación cambia únicamente esta documentación,
+los selectores de `fork/series` y esa comprobación opcional; esos metadatos no
+se incorporan al árbol histórico que se reproduce. Para otra base deben
+revisarse de nuevo las adaptaciones; no eliminarlas sin portar sus ajustes.
+
+### Investigación de workflows deshabilitados
+
+GitHub informó `disabled_manually` en consultas previas del workflow
+`409894392`. El estado actual es `active`; el campo `updated_at` reportado es
+`2026-11-18T18:48:25Z`. La API del workflow no identifica al actor que hizo el
+cambio. No se ha establecido la causa y no se modifica la configuración.
+El código de `actions-guard.sh` excluye explícitamente `hub-release.yml` de
+las desactivaciones individuales, pero `--sync-main` apaga Actions para todo
+el repositorio y luego restaura la política mediante un trap. Esto es una
+ruta que requiere investigación operativa, no prueba de causalidad. Antes
+de activar automatización, el propietario debe revisar registros de auditoría
+y otras sesiones que administran Actions. No habilitar workflows a ciegas.
