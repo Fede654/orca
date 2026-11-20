@@ -137,5 +137,7 @@
     "src/shared/fork-build.ts": "d4b462e2b83734901c76d8e9fd59101b513c5e48a90e4df73e002c8fec77b8f9",
     "src/shared/speech/speech-types.ts": "aee4b1eefe214bde7246e82c0e5557a6085c68c47d14e46b0c9f548722b6ef87",
     "src/shared/updater/release-channel.ts": "833de0b00dd3599c89ac2c942527f18d83ea35cf7ebd63eb589aab5dbb5c9c6a"
-  }
+  },
+  "schemaVersion": 1,
+  "seriesSha256": "5759775cddabbabceb83a620185d737f3c3f28cf3a3db090d9b8de43ae84df32"
 }
