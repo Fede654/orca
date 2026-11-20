@@ -1,0 +1,141 @@
+{
+  "base": "v1.4.266",
+  "baseCommit": "903c91e80fbe7bbcaffe6ac767c49eac91e98a64",
+  "historicalTarget": "8da9b6e323",
+  "topics": [
+    {
+      "selector": "fork/tooling@adapt/tooling-v1.4.266",
+      "refs": {
+        "fork/tooling": "702abdbc4f92b483233976dc4b116795e4074641",
+        "adapt/tooling-v1.4.266": "d543d0d1074ad53e690db78fe5ee0d43f315e40e"
+      }
+    },
+    {
+      "selector": "fork/partial-orcad-template@adapt/partial-orcad-template-v1.4.266",
+      "refs": {
+        "fork/partial-orcad-template": "cf227697988a6ec0d81e4e1018afb2dadcdc294a",
+        "adapt/partial-orcad-template-v1.4.266": "33109e469e4f3c745e4d8432394c30511b9adb75"
+      }
+    },
+    {
+      "selector": "feat/persistent-browser-profile@adapt/persistent-browser-profile-v1.4.266",
+      "refs": {
+        "feat/persistent-browser-profile": "2b653e987d2a06249377e4490547a6e446e79cf7",
+        "adapt/persistent-browser-profile-v1.4.266": "303d07d83d3f0acce91dbf31d4da690a72fd6c8f"
+      }
+    },
+    {
+      "selector": "feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.266",
+      "refs": {
+        "feat/stt-remote-endpoint": "b2f66fbbaa40bac1d4ac43caaf5820d31230f381",
+        "adapt/stt-remote-endpoint-v1.4.266": "377c1e64a5793f048a59596b90af7937a123b6af"
+      }
+    },
+    {
+      "selector": "fix/markdown-footnotes@adapt/markdown-footnotes-v1.4.266",
+      "refs": {
+        "fix/markdown-footnotes": "44f9411e2a6c1ebe134c400362d8133b31fde7c3",
+        "adapt/markdown-footnotes-v1.4.266": "2f1b1221e645b46a20abcdb0ac2aa4430f1b0b7e"
+      }
+    },
+    {
+      "selector": "fix/agent-picker-launchable-first@adapt/agent-picker-launchable-first-v1.4.266",
+      "refs": {
+        "fix/agent-picker-launchable-first": "90f4f2cf246cf52f6554ff39c40488d1eeca3b5d",
+        "adapt/agent-picker-launchable-first-v1.4.266": "fba80798db34f85bcd21059a63e6b186976d2022"
+      }
+    },
+    {
+      "selector": "fork/release-identity@adapt/release-identity-v1.4.266",
+      "refs": {
+        "fork/release-identity": "96d4bcacd6f68228001bbb4440889c6124fda8af",
+        "adapt/release-identity-v1.4.266": "f2b1d4f0ae53f73d58a5ec5c1a82401c6b90a846"
+      }
+    },
+    {
+      "selector": "fork/native-build@adapt/native-build-v1.4.266",
+      "refs": {
+        "fork/native-build": "b9d8a3f26fcbd666ab0085d4583683c0df84ebe4",
+        "adapt/native-build-v1.4.266": "bddf6ce64eaf0df8bca131a85dac3d445e8ef3f4"
+      }
+    }
+  ],
+  "retainedFiles": {
+    "config/build-plugins/bundled-main-dependencies.ts": "fb82172c3989278612795f4e42fcb2f9b163b3df8bb09a86df8cab49137e7b7e",
+    "config/scripts/native-build/build-journal-file-lock.mjs": "c99d5f40612b9da9fb88487f82c97506beb4d396b1a42c67c7c0a55d977a014a",
+    "config/scripts/native-build/posix/build-provider-exec.mjs": "976205e6e15eb28bfc217f2a317ed683457d5641c618041485555735ab7e421c",
+    "config/scripts/orcad-distribution/template/verify-packaged-orcad-template.cjs": "716361fca4635513bdaf84b4d4c32d0451ddb635106d0c97091c21e328930318",
+    "docs/reference/remote-dictation-contextual-correction.md": "52eb0693e74545a3336c55c1cac8c8f7e1ff7fc59da3476a0ae0788921013eab",
+    "package.json": "a59ca770823a05bc83a81ebf21ff1657477c730e00d2969ed3cb7cc45eb6c0eb",
+    "pnpm-lock.yaml": "de8c51e6fdf367c6bc7a93a035517b57f5e7b218275b24778e08a41f5ba0586a",
+    "src/main/ipc/speech.ts": "5d3bf68fb789589bc919c8010983fd3992448c73613437ba73aabb88448f2f6d",
+    "src/main/orcad/__fixtures__/fake-orcad-electron-sidecar.cjs": "04daa89ef6fe7f0cd4ebfa875d85cbe2def9a5b1aa083eb114e0f27d82843f9e",
+    "src/main/orcad/browser-providers/electron/electron-sidecar-persistent-profile.test.ts": "d6dd272b38e20d7fae5e9380907fe474f46868423be9be509feafb5762fc915e",
+    "src/main/orcad/browser-providers/electron/electron-sidecar-profile.ts": "1542a66996d669ce4dd72e4fa7c9c4646f5125ae0a61a3fc51453ea575b1d989",
+    "src/main/runtime/speech/runtime-mobile-dictation-controller.ts": "caa267da9a3b75559439b2b06babc54a6697e044e4739d14b304964ff7f7dd9b",
+    "src/main/runtime/speech/runtime-mobile-dictation-pin.test.ts": "4dbb0045b1ab86ea03bdeaf595af9d90175eb6018760f69cc4168306cf3ff58c",
+    "src/main/runtime/speech/runtime-mobile-speech-catalog.test.ts": "d97c3ce00d3043d016f6871fb7c6d86b0440209bde208ce8508b44e7c9145d87",
+    "src/main/runtime/speech/runtime-mobile-speech-catalog.ts": "a25630db8313f89fa0f9a8263aa007fc080eca433e8d95ca672cc45b553e206b",
+    "src/main/speech/cloud-transcription-target.ts": "0f63c571e3eb9b515ffcd397f3e4a78efeb19e65a2862b412ad03f106f007e95",
+    "src/main/speech/model-catalog.ts": "89509947dba38e97c364e18805357a6dcacd571af3618997f9043897cd7c0eed",
+    "src/main/speech/model-manager.ts": "b139ab541cfe4772e36cfb988e0c8978c6dc47a1dcba62aac90754302cc1f64a",
+    "src/main/speech/openai-transcription-client.ts": "44d0cd14a8d9bb4710a90bdce2a09acaedb310300268e8c77439cd87bda9896e",
+    "src/main/speech/remote-stt-endpoint-store.test.ts": "2ea19b94913f1abddd96cb89ee7cebdb069e3ee309467d52f16c59f6f1230ee2",
+    "src/main/speech/remote-stt-endpoint-store.ts": "294956500f3779422237f029efbdbdd58b95dc42a282a3a6c791d5b08544c188",
+    "src/main/speech/remote-stt-ogg-opus.ts": "439b5fa5ddbc419454fb22cd0f977a1f44f00d5a2627bd52b915f621d3275b96",
+    "src/main/speech/remote-stt-opus-encoder.ts": "51e70e81a9af977c981a8e2998b2cb9c2ef488a58e6e7c356a1ed79adc44bd30",
+    "src/main/speech/remote-stt-opus.test.ts": "722a35db92b019b16a35dc7c884756f88be6c44897ece5278832f76e549069bc",
+    "src/main/speech/remote-stt-segmented-session.test.ts": "f6a3042aa158c7b4392553178e346244e07df5f47aa0de28e9b04f0e1de031f8",
+    "src/main/speech/remote-stt-segmenter.ts": "56f9c42b88745f40408d05a9de346ba031d4200c8d476b8b29abf00485268056",
+    "src/main/speech/speech-model-pin.test.ts": "eff4f8fcc7f8652913fec9480c0bf7ce29a3a7364f00bd00b88da808fac5c2fe",
+    "src/main/speech/speech-model-pin.ts": "5c2c3e671d53bfa473e02dfc4cdda26be5f937541219e6f1bfa33314a5aaf87e",
+    "src/main/speech/speech-model-warmup-pin.test.ts": "18dd5f19974cf83463f9f516796efef3143b7ccdb75cc6611e76f2b7c3b85db9",
+    "src/main/speech/speech-model-warmup.ts": "e815d88fcdacf1673949a904095a153acde739b5e589bc6734e2a0557458be1a",
+    "src/main/speech/stt-service.ts": "9c7959e819b340e43d0a1f394dbefe86402ec5b45f9f028a34c5fc5229e671a0",
+    "src/main/speech/stt-session-start.ts": "13587b0a638ccc97fe5edffe10c06e42bb8ef646c97c610216279499935cf9f7",
+    "src/main/startup/gpu-recovery/gpu-lifecycle.ts": "5109458f2463d0fea282e26003ab4d9efe6ec0908d52dc0b65831a5ea6c990c3",
+    "src/main/updater/electron-updater-loader.test.ts": "07125e9f523bdf481ed23bc4934dc42d4bb62ee8d7016ffbdd6e47b1ff5becf0",
+    "src/main/updater/electron-updater-loader.ts": "8dccd957ad808087b1d139414408d85055fe6f68b618c1119c13f22dd04c717d",
+    "src/main/updater/lifecycle/updater-install-support.ts": "d4cc75700c78eaf95eaca6d46c9f4605f6190c5480cbf64ea41eb36f5bd247a4",
+    "src/main/updater/releases/updater-fork-release-feed.test.ts": "67757bdf6ee48d058968a7217769a94f6f1ffea0c879f85a141f10260475748d",
+    "src/main/updater/releases/updater-prerelease-feed.ts": "b56541694f9e73a3335127ad592631dfe0455dd63d5582bbd38541a35d7087c4",
+    "src/main/updater/releases/updater-release-feed.ts": "29ddcdb6f07293bbab86eaf9266d4c90391d03bc67ecf22017a474939fb873e9",
+    "src/main/updater/releases/updater-release-readiness.ts": "b91849d9fc205aa12708e457047e75bc87dc2a76dcd7ca74d130edd09b2e404c",
+    "src/main/updater/updater-events.ts": "d2a9a6af4731231f861a00d2318a8460fa184927f6112c92f770f962bec122e4",
+    "src/preload/api/speech/speech-api.ts": "d710c1f3838f75c684b0f943042afb12f7847c649455666c4d3d4df3764a009f",
+    "src/preload/api/speech/speech-bridge.ts": "b43fd01b3dd197ee470130212f32610b45968b62080e7931194d3a42b4b0485f",
+    "src/renderer/src/components/dictation/DictationController.tsx": "72b064c7172674b762829e94db91698ea8585c44beff6b8e2452c10baaf6b2f0",
+    "src/renderer/src/components/dictation/DictationIndicator.fixture.tsx": "7516db7639fc9fb3e8ce26ccad34ff0da9e15f98fca02b8a31191df68cf5f44d",
+    "src/renderer/src/components/dictation/DictationIndicator.tsx": "54ea23481863f37a0be156794cbce69e356af4a536e0ca05d583668a85b2d55a",
+    "src/renderer/src/components/dictation/dictation-segment-cue.test.ts": "14016993afc71cb112568a0e9288f7cfb6afbbe42200f7837a3adaeb0cb746a4",
+    "src/renderer/src/components/dictation/dictation-segment-cue.ts": "cc6e7d2312d1d2fbfd99dc21421c739bac6b3c88d9ff2ad19eebab0a095dd69b",
+    "src/renderer/src/components/editor/markdown/render-mode/markdown-rich-definition-probe.ts": "67ff905051e05448f0b53b5743de9294ecabb2e891c6d498ed99e4e0fd0b3893",
+    "src/renderer/src/components/editor/markdown/render-mode/markdown-rich-mode-code-strip.ts": "8d1fc11c0c0248b548d13739d8c5a662bed7076e4f70cfe9c44583595a479ef1",
+    "src/renderer/src/components/editor/markdown/render-mode/markdown-rich-mode-footnotes.test.ts": "f858504dc8ae5d134b10611150d41e3139f880a80883fd6d7b067e3da70cc684",
+    "src/renderer/src/components/editor/markdown/render-mode/markdown-rich-mode.ts": "88585b5335fa7698127520c3a1344a89d75be3638e42ac19dea2f03e0bf01369",
+    "src/renderer/src/components/editor/markdown/render-mode/markdown-round-trip.ts": "1684795cde35bcf617ad8063e937606fe93c64be1f2ae754523a11ee38eb3080",
+    "src/renderer/src/components/editor/markdown/source-scanning/markdown-reference-link-normalization.ts": "8ed1315b358dc36451924d2dd282a7433ea647f22e7cc7c78d85040253c95cca",
+    "src/renderer/src/components/editor/rich-markdown/document/rich-markdown-literal-serialization.ts": "37ddaecd7d9b497f6a9ff4674d75a69868b8edfad0beedeabc3a28b60b8da1f6",
+    "src/renderer/src/components/editor/rich-markdown/footnotes/rich-markdown-footnote-context.ts": "2d94f307e3de91860fa6d233cc451bfa97fa6941991838dc33e96fecec197ae9",
+    "src/renderer/src/components/editor/rich-markdown/footnotes/rich-markdown-footnote-source.ts": "d788f19b297123e83e28e00e0acee5c0e11ef1a697209799d613a2386b168e39",
+    "src/renderer/src/components/editor/rich-markdown/footnotes/rich-markdown-footnotes.test.ts": "db8aba989acb7739149984c152b8f17eff6d2a2e8bc7e4803fd5f269cb237cff",
+    "src/renderer/src/components/editor/rich-markdown/footnotes/rich-markdown-footnotes.ts": "c1d2e7b8a7f38e1d1bc02944b14e8db6d92b4b5a8b615bdf5c5fb88cb7cfc3b4",
+    "src/renderer/src/components/editor/rich-markdown/raw-source/raw-markdown-html.ts": "b81966d9116b2003da5c87e8533405cbdbb465c3d52d99abcf6ae575c5d991e7",
+    "src/renderer/src/components/editor/rich-markdown/schema/rich-markdown-extensions.ts": "f2ded14986bbd550e91dba84f7192156666ecf9f264664277ec2fb7d808179be",
+    "src/renderer/src/components/editor/rich-markdown/tables/rich-markdown-table.ts": "d18af9201f970c0a23e14f9d7562b588e3f75be95194233de0db57596393f77a",
+    "src/renderer/src/components/settings/updates/GeneralUpdateSettingsSection.tsx": "35181cf4a5ab21dc7d5c99b3ff373d870ead3abfa5b0066c3a2f98ee01329e4c",
+    "src/renderer/src/components/settings/voice/RemoteSttEndpointDialog.tsx": "4c614596192e4deaa18526b0145bb954280127bb45480dbb867cab72938bea33",
+    "src/renderer/src/components/settings/voice/RemoteSttEndpointSettingsRow.tsx": "bfc17fea5dc94761aca302f04505dc4f3ea9c8211a896be98e9729b725b4e0f8",
+    "src/renderer/src/components/settings/voice/VoicePane.tsx": "e4aa51db44e5656b45e73cce57305aeab145047efc6c4d6da2f62ba07bb40725",
+    "src/renderer/src/components/settings/voice/remote-stt-default-url.ts": "35da7d8b57a97a96214e10ad88b46fb5817da3a8abdb9e2cc22072e24928b774",
+    "src/renderer/src/web/preload-api/agents/web-speech-api.ts": "0ed3e80c40bd533c4e4feee0b21c3d515a56fc4c8a4ad9fad7805bfbd24d3f19",
+    "src/shared/agent-launch/picker/agent-launch-picker-entries.test.ts": "64279c8f1ce37da89f0ee23e2a54bd96cee2c28cef4ea14bc5bbfaccf54e0abd",
+    "src/shared/agent-launch/picker/agent-launch-picker-rows.ts": "d5caee925dd1a38f2e812e888c348a7542d5bc47507ad53ba680cca7f6e7097e",
+    "src/shared/agent-launch/picker/agent-launch-picker.ts": "f0c9e6cbbcea1573f3d95a4975a0b729e839fbf4097dda1940f856fb74c1893f",
+    "src/shared/fork-build-stamp.ts": "18bad0956ab4abb885111199ee08782584ea53fa12c0b66d145a107e19ae3d2a",
+    "src/shared/fork-build.test.ts": "f4821add45bab5f208b54721b1b117f93efd41af7f3d4529686c24b88eede906",
+    "src/shared/fork-build.ts": "d4b462e2b83734901c76d8e9fd59101b513c5e48a90e4df73e002c8fec77b8f9",
+    "src/shared/speech/speech-types.ts": "aee4b1eefe214bde7246e82c0e5557a6085c68c47d14e46b0c9f548722b6ef87",
+    "src/shared/updater/release-channel.ts": "833de0b00dd3599c89ac2c942527f18d83ea35cf7ebd63eb589aab5dbb5c9c6a"
+  }
+}

@@ -385,3 +385,56 @@ histórica `adapt/tooling-v1.4.266`. La comparación de la próxima integración
 se hará contra su propia referencia revisada, no contra hub.3. Este PR deja
 reproducible el histórico y referencias válidas; no habilita integración
 autónoma de releases futuras.
+
+## Próximas bases: plan revisado y metadata
+
+`fork/integration-plan.json` fija base/commit, selectores ordenados y commits
+remotos canónicos/adaptados. SHA-256 de los archivos finales que difieren de
+upstream protege los ajustes de comportamiento. El integrador rechaza base no
+revisada, refs cambiadas/ausentes, ramas locales divergentes y adaptaciones
+caducadas. Tras los picks verifica archivos retenidos antes de publicar nada.
+Un hash no demuestra semántica: fuerza a revisar explícitamente el contenido.
+
+Para otra base, portar todos los temas a nuevas adaptaciones y revisar cambios
+de selectores, commits y hashes en un PR. No regenerar hashes para silenciar
+pérdidas. Ejecutar dry-run y tests de los dueños de los comportamientos cambiados.
+Canarios también requieren plan revisado. El integrador copia `fork/` y FORK.md
+del commit de preparación en un commit separado: así viajan los selectores,
+verificador y plan actualizados sin reescribir la adaptación histórica.
+
+La reproducción histórica usa `FORK_HISTORICAL=1 FORK_VERIFY_TREE=8da9b6e323`
+junto con `--dry-run`. Exige el árbol histórico exacto y no permite publicación.
+La ruta normal incorpora metadata nueva y por ello difiere deliberadamente del
+histórico solo en tooling/documentación. Este PR no habilita integración autónoma.
+
+### Deduplicación y exclusión: diseño, sin detector activo
+
+El futuro coordinador necesita un registro durable con clave única
+`(upstreamRepo, releaseId)`, tag y upstreamCommit inmutables. Tag cambiado de
+commit exige revisión. Lease exclusivo por repo, expiración y token de fencing
+creciente; transiciones por compare-and-set de versión evitan dobles despertares.
+Estados: discovered, preparing, review-required, tagged, building,
+linux-published/macos-pending, complete, failed. Guardar integrationCommit,
+planDigest, forkTag, runId y attempt. Registrar intención antes del push y
+reconciliar refs/releases/runs remotos tras pérdida de respuesta: tag y almacén
+no forman una transacción distribuida. Commit remoto distinto bloquea la tarea;
+nunca sobrescribir tags. Un tag por commit revisado: falta de runners solo
+reintenta el job del mismo run con backoff/límite; no crea hub.N ni repite Linux.
+La concurrency por ref del workflow actual no deduplica tags distintos.
+
+Orca ofrece workflow exacto y webhook.call, no release publicada. Falta elegir y
+autorizar el origen/receptor de eventos y un almacén con exclusión durable.
+El conector GitHub por sí solo no aporta esas garantías. No se configura aquí
+ningún detector programado, receptor o automatización.
+
+### Riesgo Actions: evidencia y límite
+
+La API expone state/updated_at, sin actor o historial de disabled_manually.
+El guard excluye hub-release del disable individual; --sync-main sí desactiva
+Actions globalmente y restaura política por trap. No hay evidencia que atribuya
+el problema a esa ruta. No se cambia permisos ni se agrega enable incondicional.
+Hace falta auditoría del propietario/otras sesiones para identificar al actor.
+Si se demuestra que la restauración global es la causa, la corrección mínima
+sería capturar/restaurar explícitamente política y estados con rechazo de cambios
+concurrentes, en revisión separada con evidencia del proveedor. Mientras tanto
+no se usa --sync-main durante una publicación.
