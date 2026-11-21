@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "base": "v1.4.268",
   "baseCommit": "5dc5548b4570b276f231d81fbb51f8f7a066e40d",
-  "historicalTarget": "721c02b7db8decef6411af548417a47764ff6706",
-  "seriesSha256": "e233e87923870ce255565b7d413952968c8418fd76b1794912b5283ca9a63ecd",
+  "historicalTarget": "480a67e7995db50d6b7ae532c7e48bfee2556334",
+  "seriesSha256": "46876101f4a752c733048449e33d3543742404a55240dee2a40a3fa0c7c4a4a3",
   "topics": [
     {
-      "selector": "fork/tooling@adapt/tooling-v1.4.268-r1",
+      "selector": "fork/tooling@adapt/tooling-v1.4.268-r2",
       "refs": {
         "fork/tooling": "702abdbc4f92b483233976dc4b116795e4074641",
-        "adapt/tooling-v1.4.268-r1": "10544c3322c7657baa7a07648cc891c43f9f7c8b"
+        "adapt/tooling-v1.4.268-r2": "1ffbca7eb8eda8f1a64f71fcdba1514e2271c89c"
       }
     },
     {
@@ -27,10 +27,10 @@
       }
     },
     {
-      "selector": "feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.268-r1",
+      "selector": "feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.268-r2",
       "refs": {
         "feat/stt-remote-endpoint": "b2f66fbbaa40bac1d4ac43caaf5820d31230f381",
-        "adapt/stt-remote-endpoint-v1.4.268-r1": "8bc63eb501c75f4e4e54562565d9d26706c81f24"
+        "adapt/stt-remote-endpoint-v1.4.268-r2": "f6c5f7cfd0e8b3be8f054db5ed0f37c8ff3da84e"
       }
     },
     {
@@ -76,12 +76,12 @@
     "src/main/speech/model-catalog.ts": "89509947dba38e97c364e18805357a6dcacd571af3618997f9043897cd7c0eed",
     "src/main/speech/model-manager.ts": "3bcd635b55e489e4a90bc82972fb47eb08e6067ac95e23fed7b3ec60fe93d14b",
     "src/main/speech/openai-transcription-client.ts": "f841049a2d567787def3b58f08ad2628f054d89d6e0718f1adc2ef0d1741c09a",
-    "src/main/speech/remote-stt-endpoint-order.test.ts": "9490e1d176af1b5eab651a757e327fbbde377f1f7e5ecccdc8d1d60ecc343dd8",
+    "src/main/speech/remote-stt-endpoint-order.test.ts": "e183470359c60f87b25b489596c82ccdc252ae6a92c94cfc1ddf5203ead069ff",
     "src/main/speech/remote-stt-endpoint-store.test.ts": "2ea19b94913f1abddd96cb89ee7cebdb069e3ee309467d52f16c59f6f1230ee2",
     "src/main/speech/remote-stt-endpoint-store.ts": "29922cd047150a36bd51dc2d89682a44704cb81b9d988080b93185883ecf018b",
     "src/main/speech/remote-stt-ogg-opus.ts": "439b5fa5ddbc419454fb22cd0f977a1f44f00d5a2627bd52b915f621d3275b96",
     "src/main/speech/remote-stt-opus-encoder.ts": "51e70e81a9af977c981a8e2998b2cb9c2ef488a58e6e7c356a1ed79adc44bd30",
-    "src/main/speech/remote-stt-opus.test.ts": "a23857e6bf8dc1afb8be3dec785c11ee2d71245aadde9eec1e1e0ce221777a0b",
+    "src/main/speech/remote-stt-opus.test.ts": "82ec15d14cb78341c777c4bb8e5ca2ddd12a22e8b31baa038b6eed2b9fd3a4d0",
     "src/main/speech/remote-stt-segmented-session.test.ts": "42ca5c7c83f4bb6fd814899a78f1b427ed777689f1fe99c8a92f26dfa29e67a2",
     "src/main/speech/remote-stt-segmenter.ts": "56f9c42b88745f40408d05a9de346ba031d4200c8d476b8b29abf00485268056",
     "src/main/speech/speech-model-pin.test.ts": "eff4f8fcc7f8652913fec9480c0bf7ce29a3a7364f00bd00b88da808fac5c2fe",
@@ -101,7 +101,7 @@
     "src/main/updater/updater-events.ts": "d2a9a6af4731231f861a00d2318a8460fa184927f6112c92f770f962bec122e4",
     "src/preload/api/speech/speech-api.ts": "d710c1f3838f75c684b0f943042afb12f7847c649455666c4d3d4df3764a009f",
     "src/preload/api/speech/speech-bridge.ts": "b43fd01b3dd197ee470130212f32610b45968b62080e7931194d3a42b4b0485f",
-    "src/renderer/src/components/dictation/DictationController.session-indicator.test.tsx": "ce3c7edf530c2d88fc7d9c82bea897cffdf9fe3fcb08a85f0e30f95a2c09a062",
+    "src/renderer/src/components/dictation/DictationController.session-indicator.test.tsx": "4a10793155dadda451e1714c1ce4b78a642322b15c40125e522fb906cb8f764d",
     "src/renderer/src/components/dictation/DictationController.tsx": "3e30fc36dafb1327bbfd11a1fde749361cd1b2037b8171a0d5e131ae93c16b79",
     "src/renderer/src/components/dictation/DictationIndicator.fixture.tsx": "7516db7639fc9fb3e8ce26ccad34ff0da9e15f98fca02b8a31191df68cf5f44d",
     "src/renderer/src/components/dictation/DictationIndicator.tsx": "2042fd9f8a0b62e98ac60204a372e1aef7869cfeba0fa951a2d44e1d92adb7eb",
