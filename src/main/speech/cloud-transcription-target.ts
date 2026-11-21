@@ -48,7 +48,9 @@ export async function canReadCloudSpeechCredentials(
 }
 
 /** Reads the key (and the compatible provider's URL) only when audio is ready to upload. */
-export async function resolveCloudTranscriptionTarget(modelId: string): Promise<CloudTranscriptionTarget> {
+export async function resolveCloudTranscriptionTarget(
+  modelId: string
+): Promise<CloudTranscriptionTarget> {
   if (modelId in REMOTE_TRANSCRIPTION_MODEL_BY_ID) {
     const baseUrl = readRemoteSttBaseUrl()
     if (!baseUrl) {
