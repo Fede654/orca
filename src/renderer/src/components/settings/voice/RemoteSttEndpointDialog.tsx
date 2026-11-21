@@ -55,7 +55,10 @@ export function RemoteSttEndpointDialog({
           <Input
             id="remote-stt-endpoint-url"
             value={urlDraft}
-            placeholder="http://stt-server:8000"
+            placeholder={t(
+              'settings.voice.remoteEndpoint.urlPlaceholder',
+              'http://stt-server:8000'
+            )}
             disabled={pending}
             onChange={(event) => onUrlDraftChange(event.target.value)}
             onKeyDown={(event) => {

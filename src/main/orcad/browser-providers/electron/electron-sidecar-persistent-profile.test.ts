@@ -21,6 +21,8 @@ vi.mock('../orcad-browser-install-park', () => ({ openOrcadBrowserInstallPark: (
 import { readRuntimeMetadataAsync } from '../../../runtime/rpc/server/runtime-metadata'
 import { ElectronServeBrowserProcess } from './electron-serve-browser-process'
 
+const actualProcessHost = await vi.importActual<typeof RunProcessModule>('@orca/process-host')
+
 const FAKE_SIDECAR = join(
   import.meta.dirname,
   '..',
@@ -63,10 +65,9 @@ beforeEach(async () => {
   await writeFile(logPath, '')
   await writeFile(controlPath, '{}')
   vi.stubEnv('ORCA_BROWSER_PROFILE_DIR', profileDir)
-  const actual = await vi.importActual<typeof RunProcessModule>('@orca/process-host')
   spawnProcessMock.mockReset()
   spawnProcessMock.mockImplementation((spec: ProcessSpec) =>
-    actual.spawnProcess({
+    actualProcessHost.spawnProcess({
       ...spec,
       program: process.execPath,
       args: [FAKE_SIDECAR, ...(spec.args ?? [])],

@@ -75,6 +75,9 @@ export function DictationController() {
   const [failure, setFailure] = useState<DictationFailureKind | null>(null)
   // A new recording gets a fresh pill (timer and all); a retry keeps the one it failed in.
   const [recordingKey, setRecordingKey] = useState(0)
+  const [indicatorSessionId, setIndicatorSessionId] = useState<string | null>(
+    initialDictationSession.sessionId
+  )
   const isIdle = useCallback(() => sessionRef.current.phase === 'idle', [])
   const { setupTarget, closeSetup, hasPendingStart, invalidatePendingStart, readyToRecord } =
     useDictationSpeechModelSetup(settings?.voice, isIdle, setPillAnchor)
@@ -92,6 +95,7 @@ export function DictationController() {
         deliverRef.current = null
       }
       if (next.sessionId !== previous.sessionId) {
+        setIndicatorSessionId(next.sessionId)
         setLiveText(NO_DICTATION_LIVE_TEXT)
       }
       if (next.phase !== previous.phase) {
@@ -418,7 +422,7 @@ export function DictationController() {
   return (
     <DictationIndicator
       key={recordingKey}
-      sessionId={sessionRef.current.sessionId}
+      sessionId={indicatorSessionId}
       captureLive={captureLive}
       anchor={pillAnchor}
       failure={failure}

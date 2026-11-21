@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -45,33 +45,44 @@ export function getRemoteTranscriptionUrl(baseUrl: string): string {
   return `${baseUrl}/v1/audio/transcriptions`
 }
 
-export function readRemoteSttBaseUrl(): string | null {
-  const path = getRemoteSttEndpointPath()
-  if (!existsSync(path)) {
-    return null
-  }
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
-    const url = parsed && typeof parsed === 'object' && 'url' in parsed ? parsed.url : null
-    return typeof url === 'string' ? normalizeRemoteSttBaseUrl(url) : null
-  } catch {
-    return null
-  }
+let endpointOperations: Promise<void> = Promise.resolve()
+
+function queueEndpointOperation<T>(perform: () => Promise<T>): Promise<T> {
+  const result = endpointOperations.then(perform)
+  endpointOperations = result.then(
+    () => undefined,
+    () => undefined
+  )
+  return result
 }
 
-export function hasRemoteSttEndpoint(): boolean {
-  return readRemoteSttBaseUrl() !== null
+export function readRemoteSttBaseUrl(): Promise<string | null> {
+  return queueEndpointOperation(async () => {
+    try {
+      const parsed: unknown = JSON.parse(await readFile(getRemoteSttEndpointPath(), 'utf8'))
+      const url = parsed && typeof parsed === 'object' && 'url' in parsed ? parsed.url : null
+      return typeof url === 'string' ? normalizeRemoteSttBaseUrl(url) : null
+    } catch {
+      return null
+    }
+  })
 }
 
-export function saveRemoteSttEndpoint(input: string): string {
+export async function hasRemoteSttEndpoint(): Promise<boolean> {
+  return (await readRemoteSttBaseUrl()) !== null
+}
+
+export async function saveRemoteSttEndpoint(input: string): Promise<string> {
   const url = normalizeRemoteSttBaseUrl(input)
-  mkdirSync(getOrcaDir(), { recursive: true })
-  writeFileSync(getRemoteSttEndpointPath(), JSON.stringify({ url }), { mode: 0o600 })
-  return url
+  return queueEndpointOperation(async () => {
+    await mkdir(getOrcaDir(), { recursive: true })
+    await writeFile(getRemoteSttEndpointPath(), JSON.stringify({ url }), { mode: 0o600 })
+    return url
+  })
 }
 
-export function clearRemoteSttEndpoint(): void {
-  rmSync(getRemoteSttEndpointPath(), { force: true })
+export function clearRemoteSttEndpoint(): Promise<void> {
+  return queueEndpointOperation(() => rm(getRemoteSttEndpointPath(), { force: true }))
 }
 
 export async function checkRemoteSttHealth(

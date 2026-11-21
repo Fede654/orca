@@ -252,21 +252,22 @@ describe('OpenAiTranscriptionSession with a remote server', () => {
     expect(onSegment).not.toHaveBeenCalled()
   })
 
-  it('delivers nothing after cancel', async () => {
-    let release: () => void = () => {}
-    const held = new Promise<void>((resolve) => (release = resolve))
+  it('delivers no late server transcript after cancel', async () => {
+    const started = Promise.withResolvers<void>()
+    const held = Promise.withResolvers<void>()
     stubServer(async () => {
-      await held
+      started.resolve()
+      await held.promise
       return reply('late')
     })
     const onSegment = vi.fn()
     const session = remoteSession(onSegment)
-
     session.feedAudio(join(silence(0.3), speech(5), silence(PAUSE_SECONDS + 0.1)), RATE)
+    const finished = session.finish()
+    await started.promise
     session.cancel()
-    release()
-    await new Promise((resolve) => setTimeout(resolve, 10))
-
+    held.resolve()
+    await finished.catch(() => undefined)
     expect(onSegment).not.toHaveBeenCalled()
   })
 

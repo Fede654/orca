@@ -1831,6 +1831,23 @@
     "voice": {
       "cleanup": {
         "recipeDescription": "Clean up dictated text before it lands."
+      },
+      "remoteEndpoint": {
+        "title": "Remote speech server",
+        "dialogDescription": "Dictation audio is sent to this server when the remote model is selected. It must expose POST /v1/audio/transcriptions and GET /health.",
+        "urlLabel": "Server URL",
+        "urlPlaceholder": "http://stt-server:8000",
+        "remove": "Remove",
+        "save": "Save and test",
+        "configured": "Configured",
+        "emptyHint": "Set the URL of an OpenAI-compatible transcription server before selecting the remote model.",
+        "edit": "Edit",
+        "disconnect": "Remove remote speech server",
+        "add": "Set server URL",
+        "savedReachable": "Remote speech server saved",
+        "savedUnreachable": "Saved, but the server did not answer /health",
+        "saveFailed": "Failed to save remote speech server",
+        "clearFailed": "Failed to remove remote speech server"
       }
     },
     "groupHooks": {
@@ -18460,7 +18477,9 @@
           "finish": "Finish",
           "oneMinuteLeft": "One minute left.",
           "sendsWhenLanded": "Sends when the text lands",
-          "entersWhenLanded": "Presses Enter when the text lands"
+          "entersWhenLanded": "Presses Enter when the text lands",
+          "forcedCut": "Forced cut approaching",
+          "pauseCut": "Pause cut approaching"
         },
         "DictationPillFailure": {
           "discard": "Discard recording",

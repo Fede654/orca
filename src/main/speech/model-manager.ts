@@ -105,7 +105,7 @@ export class ModelManager extends SpeechModelDownloadTransport {
     if (manifest.provider !== 'local') {
       const ready =
         modelId === 'remote-parakeet-tdt-0.6b-v3'
-          ? hasRemoteSttEndpoint()
+          ? await hasRemoteSttEndpoint()
           : await this.hasCloudCredentials(manifest.provider)
       return { id: modelId, status: ready ? 'ready' : 'not-downloaded' }
     }

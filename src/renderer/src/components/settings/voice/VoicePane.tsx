@@ -1,3 +1,4 @@
+import { useRemoteSttEndpoint } from './use-remote-stt-endpoint'
 import { UnsealedCredentialNotice } from '../../provider-accounts/UnsealedCredentialNotice'
 import type { SecretAtRestProtection } from '../../../../../shared/secure-storage/secret-at-rest-protection'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -11,7 +12,6 @@ import { OpenAiCompatibleProviderDialog } from './OpenAiCompatibleProviderDialog
 import { OpenAiTranscriptionSettingsRow } from './OpenAiTranscriptionSettingsRow'
 import { RemoteSttEndpointDialog } from './RemoteSttEndpointDialog'
 import { RemoteSttEndpointSettingsRow } from './RemoteSttEndpointSettingsRow'
-import { DEFAULT_REMOTE_STT_URL } from './remote-stt-default-url'
 import {
   handleVoiceDictationToggle,
   voiceDictationPermissionToasts
@@ -64,11 +64,6 @@ export function VoicePane({
   )
   const [pendingCloudModelId, setPendingCloudModelId] = useState<string | null>(null)
   const [compatibleDialogOpen, setCompatibleDialogOpen] = useState(false)
-  const [remoteUrl, setRemoteUrl] = useState<string | null>(null)
-  const [remoteDialogOpen, setRemoteDialogOpen] = useState(false)
-  const [remoteUrlDraft, setRemoteUrlDraft] = useState('')
-  const [remotePending, setRemotePending] = useState(false)
-  const [pendingRemoteModelId, setPendingRemoteModelId] = useState<string | null>(null)
   const mountedRef = useRef(true)
   // Merge async whole-object writes into committed current settings; render snapshots could undo toggles changed during IPC and disable the microphone picker.
   const voiceSettingsRef = useRef(voiceSettings)
@@ -91,6 +86,25 @@ export function VoicePane({
     },
     [updateSettings]
   )
+
+  const selectedModel = catalog.find((m) => m.id === voiceSettings.sttModel)
+  const {
+    remoteUrl,
+    setRemoteUrl,
+    remoteDialogOpen,
+    setRemoteDialogOpen,
+    remoteUrlDraft,
+    setRemoteUrlDraft,
+    remotePending,
+    openRemoteDialog,
+    saveRemoteEndpoint,
+    clearRemoteEndpoint
+  } = useRemoteSttEndpoint({
+    selectedModelId: selectedModel?.id,
+    updateVoiceSettings,
+    refreshModelStates,
+    mountedRef
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -127,7 +141,7 @@ export function VoicePane({
     return () => {
       cancelled = true
     }
-  }, [refreshModelStates, updateVoiceSettings, voiceSettings.openAiApiKeyConfigured])
+  }, [refreshModelStates, updateVoiceSettings, voiceSettings.openAiApiKeyConfigured, setRemoteUrl])
 
   useEffect(() => {
     const cleanup = window.api.speech.onDownloadProgress(() => {
@@ -149,8 +163,6 @@ export function VoicePane({
     })
   }
 
-  const selectedModel = catalog.find((m) => m.id === voiceSettings.sttModel)
-
   const compatibleModel = catalog.find((m) => m.id === 'openai-compatible')
   const compatibleConfigured =
     compatibleModel !== undefined &&
@@ -169,9 +181,7 @@ export function VoicePane({
 
   const openCloudSetup = (modelId: string): void => {
     if (modelId === 'remote-parakeet-tdt-0.6b-v3') {
-      setPendingRemoteModelId(modelId)
-      setRemoteUrlDraft(remoteUrl ?? DEFAULT_REMOTE_STT_URL)
-      setRemoteDialogOpen(true)
+      openRemoteDialog(modelId)
     } else if (catalog.find((m) => m.id === modelId)?.provider === 'openai-compatible') {
       openCompatibleDialog(modelId)
     } else {
@@ -202,66 +212,6 @@ export function VoicePane({
             'Could not update the provider'
           )
       )
-    }
-  }
-
-  const saveRemoteEndpoint = async (): Promise<void> => {
-    setRemotePending(true)
-    try {
-      const saved = await window.api.speech.saveRemoteEndpoint(remoteUrlDraft)
-      setRemoteUrl(saved.url)
-      await refreshModelStates()
-      const health = await window.api.speech.checkRemoteEndpoint()
-      if (pendingRemoteModelId) {
-        updateVoiceSettings({ sttModel: pendingRemoteModelId })
-      }
-      setRemoteDialogOpen(false)
-      setPendingRemoteModelId(null)
-      if (health.ok) {
-        toast.success(
-          t('settings.voice.remoteEndpoint.savedReachable', 'Remote speech server saved')
-        )
-      } else {
-        toast.warning(
-          t(
-            'settings.voice.remoteEndpoint.savedUnreachable',
-            'Saved, but the server did not answer /health'
-          ),
-          { description: health.error }
-        )
-      }
-    } catch (error) {
-      toast.error(
-        readIpcErrorMessage(error) ??
-          t('settings.voice.remoteEndpoint.saveFailed', 'Failed to save remote speech server')
-      )
-    } finally {
-      if (mountedRef.current) {
-        setRemotePending(false)
-      }
-    }
-  }
-
-  const clearRemoteEndpoint = async (): Promise<void> => {
-    setRemotePending(true)
-    try {
-      await window.api.speech.clearRemoteEndpoint()
-      setRemoteUrl(null)
-      if (selectedModel?.id === 'remote-parakeet-tdt-0.6b-v3') {
-        updateVoiceSettings({ sttModel: '' })
-      }
-      await refreshModelStates()
-      setRemoteDialogOpen(false)
-      setPendingRemoteModelId(null)
-    } catch (error) {
-      toast.error(
-        readIpcErrorMessage(error) ??
-          t('settings.voice.remoteEndpoint.clearFailed', 'Failed to remove remote speech server')
-      )
-    } finally {
-      if (mountedRef.current) {
-        setRemotePending(false)
-      }
     }
   }
 
@@ -411,11 +361,7 @@ export function VoicePane({
                   <RemoteSttEndpointSettingsRow
                     url={remoteUrl}
                     disabled={remotePending}
-                    onConfigure={() => {
-                      setPendingRemoteModelId(null)
-                      setRemoteUrlDraft(remoteUrl ?? DEFAULT_REMOTE_STT_URL)
-                      setRemoteDialogOpen(true)
-                    }}
+                    onConfigure={() => openRemoteDialog(null)}
                     onClear={() => void clearRemoteEndpoint()}
                   />
                 </div>

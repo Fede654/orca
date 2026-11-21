@@ -586,3 +586,39 @@ actual rechaza deliberadamente otra base. No se sobrescribieron esos refs.
 
 Esta rama no publica ni activa builds. La revisión precede cualquier tag
 `v1.4.268-hub.N`; la publicación se coordina después de aprobar el candidato.
+
+### Correcciones del gate propio durante la preparación268
+
+El primer gate completo contra v268 terminó con 11/53 fallos, sin declararse
+verde: diez checks con diagnósticos concretos y unit tests con timeout de cinco
+minutos. Se distinguieron problemas del fork de upstream limpio:
+
+- max-lines (sin blanks/comentarios): speech.ts upstream268 296 / fork previo
+  323 / preparación inicial326; markdown-rich-mode.ts294/301/301;
+  VoicePane.tsx348/450/450. Tras extraer registro de proveedores IPC, scanner
+  HTML y estado/acciones de endpoint remoto, quedan264/225/398 respectivamente,
+  bajo300/300/400. No se cambian umbrales ni se agregan ignores.
+- Cinco llamadas sync-fs del endpoint y sus callers eran propias del fork
+  previo; upstream no contiene ese endpoint. Ahora se usa fs/promises y cola
+  serial save/clear/read que continúa tras fallo; IPC espera los mismos payloads.
+- El indicador leía sessionRef durante render; ahora recibe estado actualizado
+  por el mismo dispatch. Las dos nuevas pruebas de orden/recuperación y la de
+  sesión del indicador fallan si se revierte la cola o el estado, respectivamente.
+- Los dos finalizers nuevos de VoicePane se movieron a una operación de módulo,
+  conservando los dos finalizers OpenAI ya permitidos. El JSX y controles no
+  cambiaron. Las claves remotas/cues faltaban en el catálogo del fork previo;
+  se sincronizaron17 claves inglesas existentes, incluyendo placeholder técnico.
+- Los patrones de tests se corrigieron sin sleeps: cancelación espera respuesta
+  controlada y fin de sesión; importActual del perfil pasa a nivel de módulo.
+  Se eliminó el test que esperaba50ms y comprobaba longitud de libopus: era
+  cobertura de tercero con oracle calculado. Se conserva el test de upload Ogg.
+- Dos entradas obsoletas de path-literal por workflows retirados se podaron.
+  test-file-runners esperaba workflows upstream eliminados intencionalmente;
+  ahora documenta un runner manual real, aislado en CI, que consume UNIT_EXCLUDE
+  y mantiene validación de colección. `node fork/run-dedicated-tests.mjs --list`
+  es de solo lectura; --run exige CI y no se ejecutó durante esta preparación.
+
+La corrección del gate no restaura workflows ajenos ni activa uno nuevo. El
+refresco de hashes del plan268 cubre estas extracciones/async y archivos nuevos,
+no una pérdida de funcionalidad; snapshots266 y primeras adaptaciones268 se
+conservan sin reescribirlas. Se preparan revisiones r1 de los temas afectados.

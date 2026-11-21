@@ -99,7 +99,7 @@ export async function startSttDictation(
       await teardownIdleSttEngine(state)
       const remote = modelId === 'remote-parakeet-tdt-0.6b-v3'
       if (remote) {
-        const baseUrl = readRemoteSttBaseUrl()
+        const baseUrl = await readRemoteSttBaseUrl()
         if (!baseUrl) {
           throw new Error('Remote speech server URL is not configured')
         }

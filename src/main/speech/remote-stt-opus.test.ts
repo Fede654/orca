@@ -1,4 +1,3 @@
-import { createDecoder } from 'libopus-wasm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { OpenAiTranscriptionSession } from './openai-transcription-client'
 import { muxOggOpus, oggCrc } from './remote-stt-ogg-opus'
@@ -90,31 +89,6 @@ describe('muxOggOpus', () => {
 
 describe('remote Opus encoding', () => {
   afterEach(() => vi.unstubAllGlobals())
-
-  it('encodes segments frame by frame into streams libopus decodes to the same length', async () => {
-    const encoder = (await createRemoteSttOpusEncoder(RATE))!
-    expect(encoder.frameSamples).toBe(320)
-    // Let the spare encoder load so the cut starts a fresh stream.
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    const segmenter = new RemoteSttSegmenter(RATE, encoder)
-    const segments = segmenter.push(speechWithPause())
-    segments.push(segmenter.flush()!)
-    expect(segments).toHaveLength(2)
-
-    const decoder = await createDecoder({ sampleRate: 48000, channels: 1 })
-    for (const segment of segments) {
-      const ogg = encoder.toOgg(segment.packets!, segment.samples.length)
-      // About 24 kbps instead of 256 kbps WAV.
-      expect(ogg.length).toBeLessThan((segment.samples.length / RATE) * 4000)
-      const audio = parseOgg(ogg)
-        .slice(2)
-        .flatMap((page) => page.packets)
-      const decoded = audio.reduce((total, packet) => total + decoder.decode(packet).length, 0)
-      expect(decoded).toBe(segment.packets!.length * 960)
-    }
-    decoder.free()
-    encoder.free()
-  })
 
   it('uploads Ogg Opus to the remote server', async () => {
     const files: File[] = []

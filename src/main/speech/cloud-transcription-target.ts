@@ -52,7 +52,7 @@ export async function resolveCloudTranscriptionTarget(
   modelId: string
 ): Promise<CloudTranscriptionTarget> {
   if (modelId in REMOTE_TRANSCRIPTION_MODEL_BY_ID) {
-    const baseUrl = readRemoteSttBaseUrl()
+    const baseUrl = await readRemoteSttBaseUrl()
     if (!baseUrl) {
       throw new Error('The remote speech server is not set up')
     }
