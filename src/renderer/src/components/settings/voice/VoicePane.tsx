@@ -1,3 +1,4 @@
+import { useRemoteSttEndpoint } from './use-remote-stt-endpoint'
 import { UnsealedCredentialNotice } from '../../provider-accounts/UnsealedCredentialNotice'
 import type { SecretAtRestProtection } from '../../../../../shared/secure-storage/secret-at-rest-protection'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -9,6 +10,8 @@ import { useAppStore } from '@/store/index'
 import { OpenAiTranscriptionKeyDialog } from './OpenAiTranscriptionKeyDialog'
 import { OpenAiCompatibleProviderDialog } from './OpenAiCompatibleProviderDialog'
 import { OpenAiTranscriptionSettingsRow } from './OpenAiTranscriptionSettingsRow'
+import { RemoteSttEndpointDialog } from './RemoteSttEndpointDialog'
+import { RemoteSttEndpointSettingsRow } from './RemoteSttEndpointSettingsRow'
 import {
   handleVoiceDictationToggle,
   voiceDictationPermissionToasts
@@ -84,6 +87,25 @@ export function VoicePane({
     [updateSettings]
   )
 
+  const selectedModel = catalog.find((m) => m.id === voiceSettings.sttModel)
+  const {
+    remoteUrl,
+    setRemoteUrl,
+    remoteDialogOpen,
+    setRemoteDialogOpen,
+    remoteUrlDraft,
+    setRemoteUrlDraft,
+    remotePending,
+    openRemoteDialog,
+    saveRemoteEndpoint,
+    clearRemoteEndpoint
+  } = useRemoteSttEndpoint({
+    selectedModelId: selectedModel?.id,
+    updateVoiceSettings,
+    refreshModelStates,
+    mountedRef
+  })
+
   useEffect(() => {
     let cancelled = false
     refreshModelStates()
@@ -108,10 +130,18 @@ export function VoicePane({
         }
       })
       .catch(() => {})
+    void window.api.speech
+      .getRemoteEndpoint()
+      .then((endpoint) => {
+        if (!cancelled) {
+          setRemoteUrl(endpoint.url)
+        }
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [refreshModelStates, updateVoiceSettings, voiceSettings.openAiApiKeyConfigured])
+  }, [refreshModelStates, updateVoiceSettings, voiceSettings.openAiApiKeyConfigured, setRemoteUrl])
 
   useEffect(() => {
     const cleanup = window.api.speech.onDownloadProgress(() => {
@@ -133,9 +163,7 @@ export function VoicePane({
     })
   }
 
-  const selectedModel = catalog.find((m) => m.id === voiceSettings.sttModel)
-
-  const compatibleModel = catalog.find((m) => m.provider === 'openai-compatible')
+  const compatibleModel = catalog.find((m) => m.id === 'openai-compatible')
   const compatibleConfigured =
     compatibleModel !== undefined &&
     modelStates.some((s) => s.id === compatibleModel.id && s.status === 'ready')
@@ -152,7 +180,9 @@ export function VoicePane({
   }
 
   const openCloudSetup = (modelId: string): void => {
-    if (catalog.find((m) => m.id === modelId)?.provider === 'openai-compatible') {
+    if (modelId === 'remote-parakeet-tdt-0.6b-v3') {
+      openRemoteDialog(modelId)
+    } else if (catalog.find((m) => m.id === modelId)?.provider === 'openai-compatible') {
       openCompatibleDialog(modelId)
     } else {
       openOpenAiDialog(modelId)
@@ -170,7 +200,7 @@ export function VoicePane({
   const removeCompatibleProvider = async (): Promise<void> => {
     try {
       await window.api.speech.clearOpenAiCompatibleProvider()
-      if (selectedModel?.provider === 'openai-compatible') {
+      if (selectedModel?.id === 'openai-compatible') {
         updateVoiceSettings({ sttModel: '' })
       }
       refreshModelStates()
@@ -326,6 +356,16 @@ export function VoicePane({
                   onClear={() => void removeCompatibleProvider()}
                 />
               ) : null}
+              {remoteUrl || selectedModel?.id === 'remote-parakeet-tdt-0.6b-v3' ? (
+                <div data-settings-row="" className="px-5">
+                  <RemoteSttEndpointSettingsRow
+                    url={remoteUrl}
+                    disabled={remotePending}
+                    onConfigure={() => openRemoteDialog(null)}
+                    onClear={() => void clearRemoteEndpoint()}
+                  />
+                </div>
+              ) : null}
             </>
           }
         />
@@ -365,6 +405,17 @@ export function VoicePane({
         open={compatibleDialogOpen}
         onOpenChange={setCompatibleDialogOpen}
         onSaved={handleCompatibleSaved}
+      />
+
+      <RemoteSttEndpointDialog
+        open={remoteDialogOpen}
+        configured={remoteUrl !== null}
+        urlDraft={remoteUrlDraft}
+        pending={remotePending}
+        onOpenChange={setRemoteDialogOpen}
+        onUrlDraftChange={setRemoteUrlDraft}
+        onSave={() => void saveRemoteEndpoint()}
+        onClear={() => void clearRemoteEndpoint()}
       />
 
       <OpenAiTranscriptionKeyDialog
