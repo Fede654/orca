@@ -1,21 +1,26 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const disk = vi.hoisted(() => ({
-  contents: null as string | null,
-  failWrite: false,
-  nextWrite: null as { started: () => void; gate: Promise<void> } | null
-}))
+type EndpointDisk = {
+  contents: string | null
+  failWrite: boolean
+  nextWrite: { started: () => void; gate: Promise<void> } | null
+}
+const disk = vi.hoisted((): EndpointDisk => ({ contents: null, failWrite: false, nextWrite: null }))
 vi.mock('node:fs/promises', () => ({
   mkdir: async () => undefined,
   readFile: async () => {
-    if (disk.contents === null) throw new Error('missing')
+    if (disk.contents === null) {
+      throw new Error('missing')
+    }
     return disk.contents
   },
   writeFile: async (_path: string, text: string) => {
     const held = disk.nextWrite
     disk.nextWrite = null
     held?.started()
-    if (held) await held.gate
+    if (held) {
+      await held.gate
+    }
     if (disk.failWrite) {
       disk.failWrite = false
       throw new Error('disk write failed')

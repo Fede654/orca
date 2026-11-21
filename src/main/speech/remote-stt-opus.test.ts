@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { OpenAiTranscriptionSession } from './openai-transcription-client'
 import { muxOggOpus, oggCrc } from './remote-stt-ogg-opus'
 import { createRemoteSttOpusEncoder } from './remote-stt-opus-encoder'
-import { RemoteSttSegmenter, SEGMENT_PAUSE_MS } from './remote-stt-segmenter'
+import { SEGMENT_PAUSE_MS } from './remote-stt-segmenter'
 
 const RATE = 16000
 

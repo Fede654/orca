@@ -3,9 +3,15 @@ import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 
-const harness = vi.hoisted(() => ({
-  controls: null as null | { start: () => void; cancel: () => void },
-  events: null as null | { onStopped: (id: string) => void },
+type IndicatorHarness = {
+  controls: null | { start: () => void; cancel: () => void }
+  events: null | { onStopped: (id: string) => void }
+  state: Record<string, unknown>
+}
+
+const harness = vi.hoisted((): IndicatorHarness => ({
+  controls: null,
+  events: null,
   state: {
     dictationState: 'idle',
     setDictationState: () => {},
