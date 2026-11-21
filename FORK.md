@@ -553,3 +553,36 @@ con --resolve-intent; cerrar/reabrir SQLite o perder el lease no elimina esa
 intención. La migración transaccional de esquema 1 a 2 conserva la generación
 original como 1 y crea el historial sin borrar datos. La unicidad entre tabla
 activa e historial se comprueba dentro del mismo BEGIN IMMEDIATE.
+
+## Preparación revisada v1.4.268 (2026-11-21)
+
+Base estable fijada: `v1.4.268` (consultar `integration-plan.json` para el SHA
+completo). Esta preparación conserva los tres PR de tooling/ledger mergeados.
+Se revisaron los once archivos de comportamiento que cambian respecto al fork
+anterior: async de credenciales/upload de voz; cambios upstream del updater,
+catálogo y UI; lockfile/versiones upstream; implementación nativa absorbida.
+El resto de archivos retenidos no cambió respecto a la integración revisada.
+
+Picker #45594 (`c664321280ab21890371eddec200dc8356204e63`) NO es ancestro
+del tag v1.4.268. Se mantiene la adaptación; upstream volvió a ofrecer filas
+chat con setup y la condición ready excluye setup de nuevo. Las pruebas cubren
+esa distinción. Los fixes nativos completos de #45118 (`b9d8a3f26f`) SÍ están
+en el tag y el diff del build nativo es cero; se retira esa fila de la serie
+actual sin borrar ramas o snapshots históricos.
+
+Siete adaptaciones nuevas, basadas directamente en v1.4.268, contienen los
+ajustes revisados; el plan fija sus commits y hashes. No se actualizaron hashes
+para ocultar pérdidas: las diferencias se revisaron por archivo y se probaron
+los comportamientos de voz, perfil, picker, footnotes y updater. El nuevo
+resolver de credenciales puede devolver Promise; cada upload, incluidos tramos
+remotos, espera el destino antes de crear el formulario.
+
+La reproducción normal compara el candidato completo, incluida metadata, con
+HEAD revisado. La modalidad histórica del plan actual compara el árbol fuente
+revisado de v1.4.268 anterior al refresco de metadata (historicalTarget).
+Para reproducir el histórico publicado de v1.4.266 usar un checkout temporal
+del tooling/plan conservado en `30965cc3f8` con sus refs adapt-v1.4.266; el plan
+actual rechaza deliberadamente otra base. No se sobrescribieron esos refs.
+
+Esta rama no publica ni activa builds. La revisión precede cualquier tag
+`v1.4.268-hub.N`; la publicación se coordina después de aprobar el candidato.
