@@ -622,3 +622,39 @@ La corrección del gate no restaura workflows ajenos ni activa uno nuevo. El
 refresco de hashes del plan268 cubre estas extracciones/async y archivos nuevos,
 no una pérdida de funcionalidad; snapshots266 y primeras adaptaciones268 se
 conservan sin reescribirlas. Se preparan revisiones r1 de los temas afectados.
+
+## Preparación revisada v1.4.273 (2026-11-24)
+
+Base fijada: `v1.4.273`, commit `7027c7ecce594d2295c47e9afc9004b1eb6c83bb`.
+La serie ahora tiene seis adaptaciones nuevas basadas directamente en ese tag;
+las adaptaciones268 y tags publicados se conservan. El picker #45594
+(`c664321280ab21890371eddec200dc8356204e63`) ya es ancestro del tag y conserva
+readiness sin setup, tipos y partición estable: se retira completo, sin parche
+residual ni restauración de sus tests podados upstream. Los fixes nativos de
+#45118 siguen absorbidos y fuera de la serie.
+
+Se conservan perfil configurable con validación explícita de ruta, STT remoto
+segmentado Ogg Opus con modelo fijado, footnotes con round-trip, plantilla
+parcial, identidad/updater y tooling/ledger. La configuración de persistencia
+complementa la recuperación upstream, no la reemplaza. Package/lock incorporan
+solo libopus-wasm sobre las versiones273; su bundling convive con semver nuevo
+de upstream. El baseline elimina únicamente la referencia al workflow retirado;
+no recupera entradas obsoletas ni aumenta ratchets. El runner manual consume
+el UNIT_EXCLUDE273 (cross-version-wire) y sigue exigiendo CI aislada.
+
+La identidad usa el tag del fork dentro de la nueva selección de releases de
+equipos, conservando minimumVersion, forceUpdates y delays/canales. Hub.N se
+considera estable; la búsqueda paginada de releases antiguas y los targets
+stable/rc usan el repo del fork, filtrando tags upstream. Un mínimo upstream
+X.Y.Z se satisface con X.Y.Z-hub.N; un mínimo hub.N conserva su revisión exacta.
+Las actualizaciones forzadas comparan contra la revisión instalada, sin perder
+hub.N+1 por comparar solo app.getVersion(). Los canales dedicados siguen su
+política upstream. Se conserva un fixture de red requerido por los tests del
+fork, sin restaurar la suite de updater eliminada en273.
+
+El integrador imprime SHA y árbol del candidato también en dry-run, antes de
+limpiarlo. La preparación revisada aporta su metadata en un commit separado;
+el candidato de release debe regenerarse desde refs remotas fijadas y comparar
+el árbol completo con esta preparación. Un marcador de ancestry usado solo
+para presentar el PR no forma parte de la serie ni del historial de release.
+No se publica ni mueve feat/integration hasta revisar el candidato.

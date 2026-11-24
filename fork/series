@@ -2,10 +2,9 @@
 # <tipo>	<ref>	<upstream>	<nota>
 # tipo: topic <rama>[@<rama adaptada al tag>] | backport <sha de upstream main>[@<rama adaptada al tag>].
 # La adaptada se usa solo si está basada en el tag que se integra; si no, vale la rama de tema. El orden importa: fork/tooling va primero.
-topic	fork/tooling@adapt/tooling-v1.4.268-r2	fork-only	doctrina, integrate.sh, actions-guard.sh, hub-release.yml
-topic	fork/partial-orcad-template@adapt/partial-orcad-template-v1.4.268-r1	fork-only	ORCA_ORCAD_TEMPLATE_TARGETS: el AppImage del hub lleva y verifica solo el template linux-x64
-topic	feat/persistent-browser-profile@adapt/persistent-browser-profile-v1.4.268-r1	proponer	ORCA_BROWSER_PROFILE_DIR: perfil persistente del sidecar Electron en headless
-topic	feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.268-r2	fork-only	STT remoto sobre el proveedor OpenAI-compatible de upstream: conserva el modelo y archivo del hub, ORCA_SPEECH_MODEL y tramos Ogg Opus
-topic	fix/markdown-footnotes@adapt/markdown-footnotes-v1.4.268-r1	proponer	footnotes GFM en el editor Markdown
-topic	fix/agent-picker-launchable-first@adapt/agent-picker-launchable-first-v1.4.268-r1	PR #45594	picker de pestaña nueva: los agentes listos en el host primero, los que le faltan (instalar o no disponibles) después
-topic	fork/release-identity@adapt/release-identity-v1.4.268-r1	fork-only	sello X.Y.Z-hub.N + repo (lo escribe hub-release.yml): About muestra el tag y el updater del escritorio sigue las releases del fork, nunca las de upstream
+topic	fork/tooling@adapt/tooling-v1.4.273	fork-only	doctrina, integrate.sh, actions-guard.sh, hub-release.yml
+topic	fork/partial-orcad-template@adapt/partial-orcad-template-v1.4.273	fork-only	ORCA_ORCAD_TEMPLATE_TARGETS: el AppImage del hub lleva y verifica solo el template linux-x64
+topic	feat/persistent-browser-profile@adapt/persistent-browser-profile-v1.4.273	proponer	ORCA_BROWSER_PROFILE_DIR: perfil persistente del sidecar Electron en headless
+topic	feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.273	fork-only	STT remoto sobre el proveedor OpenAI-compatible de upstream: conserva el modelo y archivo del hub, ORCA_SPEECH_MODEL y tramos Ogg Opus
+topic	fix/markdown-footnotes@adapt/markdown-footnotes-v1.4.273	proponer	footnotes GFM en el editor Markdown
+topic	fork/release-identity@adapt/release-identity-v1.4.273	fork-only	sello X.Y.Z-hub.N + repo (lo escribe hub-release.yml): About muestra el tag y el updater del escritorio sigue las releases del fork, nunca las de upstream
