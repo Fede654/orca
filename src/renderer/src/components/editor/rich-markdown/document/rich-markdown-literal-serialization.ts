@@ -90,7 +90,7 @@ export function preserveLiteralMarkdownSource(
       return markdown
     }
     // Reference definitions can change inline meaning across block boundaries.
-    if (/\][ \t]*:/.test(withoutOptionalEscapes(markdown))) {
+    if (/^ {0,3}\[(?!\^)[^\]]+\]:/m.test(withoutOptionalEscapes(markdown))) {
       return markdown
     }
     blocks = new Map()
