@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "base": "v1.4.273",
   "baseCommit": "7027c7ecce594d2295c47e9afc9004b1eb6c83bb",
-  "historicalTarget": "384cc463150050eaf26b2e803d4e1b28d018800f",
+  "historicalTarget": "e9efdbe4e6a4789439d82565b324054c3e84a354",
   "seriesSha256": "02698377213475af515b9d2703afc008bca2b637e9c6b032c370772b873a343c",
   "topics": [
     {
@@ -44,7 +44,7 @@
       "selector": "fork/release-identity@adapt/release-identity-v1.4.273",
       "refs": {
         "fork/release-identity": "96d4bcacd6f68228001bbb4440889c6124fda8af",
-        "adapt/release-identity-v1.4.273": "d6643b8ed7312172d2a64f091b253247ba8b06e5"
+        "adapt/release-identity-v1.4.273": "97eb7590b073c2c9d73cebefd622562b93198477"
       }
     }
   ],
@@ -87,13 +87,13 @@
     "src/main/updater/electron-updater-loader.test.ts": "07125e9f523bdf481ed23bc4934dc42d4bb62ee8d7016ffbdd6e47b1ff5becf0",
     "src/main/updater/electron-updater-loader.ts": "8dccd957ad808087b1d139414408d85055fe6f68b618c1119c13f22dd04c717d",
     "src/main/updater/lifecycle/updater-install-support.ts": "aaca3831f2bb5d4f826fb1767c226a4d1ae9f606f3f018bd9cf25c6dc3ef9594",
-    "src/main/updater/releases/updater-fork-release-feed.test.ts": "edc3c9b0493b531129d98114203e68db3bde24766c9edae14cbc51f3273bfc41",
+    "src/main/updater/releases/updater-fork-release-feed.test.ts": "34bb757aa6b05757446ddcb7fdb4957894a6a44236656e26bbe77c0dc3adf07c",
     "src/main/updater/releases/updater-prerelease-feed.ts": "8515ad0ca0bf982a3869ab1e5dd69dbf8272600586fb9bf6c194148c80422796",
     "src/main/updater/releases/updater-release-builds.ts": "8e8972b7ffef50ad0a7000a99d541c05e71dd39a212bc2906858a100880d5f99",
     "src/main/updater/releases/updater-release-feed.ts": "d836a1ddfc6bcec9cacd7737640e1dea24383d6e6a15b5a4299de4c041fba1ee",
-    "src/main/updater/releases/updater-release-policy.ts": "43fde25f21ab46da08739cc4a7de4b73d1c4fe0d072bca5b51b5733a86e587f9",
+    "src/main/updater/releases/updater-release-policy.ts": "ff12b8f95cc727f90741fc9a8878b41cb094885c78019f5fb869b15b83cbaf46",
     "src/main/updater/releases/updater-release-readiness.ts": "b91849d9fc205aa12708e457047e75bc87dc2a76dcd7ca74d130edd09b2e404c",
-    "src/main/updater/testing/updater-net-request.fixture.ts": "431a29c3d8516e9772796eda30dc2a4f409b5319ed43f76e6a33f9a993aba331",
+    "src/main/updater/testing/updater-net-request.fixture.ts": "e22747fe5503741476359741fdec97c4141bddad99d45450f29e784e1348856e",
     "src/main/updater/updater-events.ts": "f57762f5aae47767eb887c41bc4a0665047ccd56c8d7f5443161b0d11a85f31a",
     "src/preload/api/speech/speech-api.ts": "d710c1f3838f75c684b0f943042afb12f7847c649455666c4d3d4df3764a009f",
     "src/preload/api/speech/speech-bridge.ts": "b43fd01b3dd197ee470130212f32610b45968b62080e7931194d3a42b4b0485f",

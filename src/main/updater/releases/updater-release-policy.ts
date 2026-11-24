@@ -65,7 +65,7 @@ export function applyEmergencyUpdateFloor(
   const channel = getVersionChannel(minimum)
   if (
     (channel !== 'stable' && channel !== 'rc') ||
-    meetsReleaseMinimumVersion(currentVersion, minimum)
+    meetsReleaseMinimumVersion(forkAwareAppVersion(currentVersion), minimum)
   ) {
     return team
   }
@@ -93,7 +93,7 @@ export function requiredMinimumVersion(
   const minimum = policy?.minimumVersion
   return minimum &&
     isValidVersion(currentVersion) &&
-    !meetsReleaseMinimumVersion(currentVersion, minimum)
+    !meetsReleaseMinimumVersion(forkAwareAppVersion(currentVersion), minimum)
     ? minimum
     : undefined
 }
