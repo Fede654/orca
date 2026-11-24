@@ -1,3 +1,4 @@
+import { forEachEmbeddedHtmlFragment } from '../source-scanning/embedded-html-fragments'
 import { defaultSchema } from 'rehype-sanitize'
 import { normalizeDetailsOpeningTag } from '../../rich-markdown/details/details-markdown-html'
 import {
@@ -13,6 +14,9 @@ import {
 import { translate } from '@/i18n/i18n'
 import { encodeRawMarkdownHtmlForRichEditor } from '../../rich-markdown/raw-source/raw-markdown-html'
 import { createRichMarkdownEditorCodec } from '../../rich-markdown/document/rich-markdown-source-transport'
+import { preservesRichMarkdownFootnoteMarkers } from '../../rich-markdown/footnotes/rich-markdown-footnote-source'
+import { getGfmDefinitionReason } from './markdown-rich-definition-probe'
+import { stripMarkdownCode } from './markdown-rich-mode-code-strip'
 
 // Why: eligibility re-runs on every edit, so this caps full-document parser cost.
 const FULL_ROUND_TRIP_MAX_CODE_UNITS = 50_000
@@ -62,7 +66,7 @@ const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
         'Editable only in code mode because this file contains footnotes.'
       )
     },
-    pattern: /^\[\^[^\]]+\]:\s+/m
+    pattern: /^ {0,3}\[\^[^\]]+\]:/m
   },
   {
     reason: 'reference-links',
@@ -73,7 +77,7 @@ const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
       )
     },
     // Why: `[label]: ` also opens prose, so the rich parser confirms a real definition.
-    pattern: /^\[[^\]]+\]:\s+\S+/m
+    pattern: /^\[(?!\^)[^\]]+\]:\s+\S+/m
   }
 ]
 
@@ -100,15 +104,24 @@ export function getMarkdownRichModeUnsupportedReason(
 
   const contentWithoutCode = stripMarkdownCode(body)
 
-  // Only documents containing embedded HTML need a preservation proof.
+  // Embedded HTML and footnotes need a preservation proof before visual editing.
   const htmlMatcher = UNSUPPORTED_PATTERNS.find((m) => m.reason === 'html-or-jsx')
   const hasHtml = htmlMatcher && hasHtmlOrJsx(contentWithoutCode, htmlMatcher.pattern)
+  const definitionReason = getGfmDefinitionReason(body)
+  if (definitionReason === 'reference-links') {
+    return definitionReason
+  }
 
+  let hasFootnotes = false
   for (const matcher of UNSUPPORTED_PATTERNS) {
     if (matcher.reason === 'html-or-jsx') {
       continue
     }
     if (!matcher.pattern.test(contentWithoutCode)) {
+      continue
+    }
+    if (matcher.reason === 'footnotes') {
+      hasFootnotes = true
       continue
     }
     if (
@@ -121,15 +134,34 @@ export function getMarkdownRichModeUnsupportedReason(
     return matcher.reason
   }
 
-  if (hasHtml) {
+  if (
+    definitionReason === 'footnotes-unsupported' ||
+    (definitionReason === 'footnotes' && !hasFootnotes)
+  ) {
+    return 'footnotes'
+  }
+
+  if (hasHtml || hasFootnotes) {
     const roundTripOutput =
       body.length > FULL_ROUND_TRIP_MAX_CODE_UNITS
         ? getLargeMarkdownRoundTripOutput(body, htmlMatcher!.pattern)
         : getRichMarkdownRoundTripOutput(body)
-    if (roundTripOutput && preservesEmbeddedHtml(contentWithoutCode, roundTripOutput)) {
-      return null
+    if (
+      hasFootnotes &&
+      (!roundTripOutput ||
+        !preservesRichMarkdownFootnoteMarkers(
+          contentWithoutCode,
+          stripMarkdownCode(roundTripOutput)
+        ))
+    ) {
+      return 'footnotes'
     }
-    return htmlMatcher!.reason
+    if (
+      hasHtml &&
+      (!roundTripOutput || !preservesEmbeddedHtml(contentWithoutCode, roundTripOutput))
+    ) {
+      return htmlMatcher!.reason
+    }
   }
 
   return null
@@ -208,33 +240,6 @@ function isHtmlOrJsxFragment(fragment: string): boolean {
   return suffix.length > 0 || KNOWN_MARKDOWN_HTML_TAG_NAMES.has(tagName.toLowerCase())
 }
 
-function stripMarkdownCode(content: string): string {
-  let sanitized = ''
-  let activeFence: '`' | '~' | null = null
-  let lineStart = 0
-
-  while (lineStart <= content.length) {
-    const newlineIndex = content.indexOf('\n', lineStart)
-    const index = newlineIndex === -1 ? content.length : newlineIndex
-    const lineEnd = index > lineStart && content.charCodeAt(index - 1) === 13 ? index - 1 : index
-    const line = content.slice(lineStart, lineEnd)
-    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/)
-    if (fenceMatch) {
-      const fenceMarker = fenceMatch[1][0] as '`' | '~'
-      activeFence = activeFence === fenceMarker ? null : fenceMarker
-    } else if (!activeFence) {
-      sanitized += line.replace(/`+[^`\n]*`+/g, '')
-    }
-
-    if (index < content.length) {
-      sanitized += '\n'
-    }
-    lineStart = index + 1
-  }
-
-  return sanitized
-}
-
 function preservesEmbeddedHtml(contentWithoutCode: string, roundTripOutput: string): boolean {
   let searchIndex = 0
   return forEachEmbeddedHtmlFragment(contentWithoutCode, (fragment) => {
@@ -252,96 +257,4 @@ function preservesEmbeddedHtml(contentWithoutCode: string, roundTripOutput: stri
     searchIndex = foundIndex + (useNormalized ? normalized.length : fragment.length)
     return true
   })
-}
-
-function forEachEmbeddedHtmlFragment(
-  content: string,
-  visit: (fragment: string) => boolean
-): boolean {
-  const lastCommentClose = content.lastIndexOf('-->')
-  for (let index = 0; index < content.length; index++) {
-    if (content.charCodeAt(index) !== 60) {
-      continue
-    }
-
-    let fragmentEnd: number | null = null
-    if (content.startsWith('<!--', index)) {
-      const commentEnd = index + 4 <= lastCommentClose ? content.indexOf('-->', index + 4) : -1
-      fragmentEnd = commentEnd === -1 ? null : commentEnd + 3
-    } else {
-      fragmentEnd = getHtmlTagEnd(content, index)
-    }
-
-    if (fragmentEnd === null) {
-      continue
-    }
-
-    if (!visit(content.slice(index, fragmentEnd))) {
-      return false
-    }
-    index = fragmentEnd - 1
-  }
-
-  return true
-}
-
-function getHtmlTagEnd(content: string, startIndex: number): number | null {
-  let index = startIndex + 1
-
-  if (content.charCodeAt(index) === 47) {
-    index++
-  }
-
-  if (!isHtmlTagNameStart(content.charCodeAt(index))) {
-    return null
-  }
-  index++
-
-  while (isHtmlTagNamePart(content.charCodeAt(index))) {
-    index++
-  }
-
-  const nextCode = content.charCodeAt(index)
-  if (nextCode === 62) {
-    return index + 1
-  }
-  if (nextCode === 47 && content.charCodeAt(index + 1) === 62) {
-    return index + 2
-  }
-  if (!isHtmlWhitespace(nextCode)) {
-    return null
-  }
-
-  index++
-  while (index < content.length) {
-    const code = content.charCodeAt(index)
-    if (code === 60) {
-      return null
-    }
-    if (code === 62) {
-      return index + 1
-    }
-    index++
-  }
-
-  return null
-}
-
-function isHtmlTagNameStart(code: number): boolean {
-  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
-}
-
-function isHtmlTagNamePart(code: number): boolean {
-  return (
-    isHtmlTagNameStart(code) ||
-    (code >= 48 && code <= 57) ||
-    code === 95 ||
-    code === 46 ||
-    code === 58 ||
-    code === 45
-  )
-}
-
-function isHtmlWhitespace(code: number): boolean {
-  return code === 9 || code === 10 || code === 11 || code === 12 || code === 13 || code === 32
 }
