@@ -1,68 +1,61 @@
 {
   "schemaVersion": 1,
-  "base": "v1.4.268",
-  "baseCommit": "5dc5548b4570b276f231d81fbb51f8f7a066e40d",
-  "historicalTarget": "480a67e7995db50d6b7ae532c7e48bfee2556334",
-  "seriesSha256": "46876101f4a752c733048449e33d3543742404a55240dee2a40a3fa0c7c4a4a3",
+  "base": "v1.4.273",
+  "baseCommit": "7027c7ecce594d2295c47e9afc9004b1eb6c83bb",
+  "historicalTarget": "384cc463150050eaf26b2e803d4e1b28d018800f",
+  "seriesSha256": "02698377213475af515b9d2703afc008bca2b637e9c6b032c370772b873a343c",
   "topics": [
     {
-      "selector": "fork/tooling@adapt/tooling-v1.4.268-r2",
+      "selector": "fork/tooling@adapt/tooling-v1.4.273",
       "refs": {
         "fork/tooling": "702abdbc4f92b483233976dc4b116795e4074641",
-        "adapt/tooling-v1.4.268-r2": "1ffbca7eb8eda8f1a64f71fcdba1514e2271c89c"
+        "adapt/tooling-v1.4.273": "f46ac3fe97a47a3949aee2dbd3065bcb62a45391"
       }
     },
     {
-      "selector": "fork/partial-orcad-template@adapt/partial-orcad-template-v1.4.268-r1",
+      "selector": "fork/partial-orcad-template@adapt/partial-orcad-template-v1.4.273",
       "refs": {
         "fork/partial-orcad-template": "cf227697988a6ec0d81e4e1018afb2dadcdc294a",
-        "adapt/partial-orcad-template-v1.4.268-r1": "4507ed8063bb3b6851a12ee7c42822f279caf583"
+        "adapt/partial-orcad-template-v1.4.273": "2cdd1dc4eefa022c34571a251160856d8ff0f7d6"
       }
     },
     {
-      "selector": "feat/persistent-browser-profile@adapt/persistent-browser-profile-v1.4.268-r1",
+      "selector": "feat/persistent-browser-profile@adapt/persistent-browser-profile-v1.4.273",
       "refs": {
         "feat/persistent-browser-profile": "2b653e987d2a06249377e4490547a6e446e79cf7",
-        "adapt/persistent-browser-profile-v1.4.268-r1": "c047b4a05a24bb23028d87d4e507e066fd4ebdaa"
+        "adapt/persistent-browser-profile-v1.4.273": "2c1f33d6f9613357505e5f65bd006d76950ea019"
       }
     },
     {
-      "selector": "feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.268-r2",
+      "selector": "feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.273",
       "refs": {
         "feat/stt-remote-endpoint": "b2f66fbbaa40bac1d4ac43caaf5820d31230f381",
-        "adapt/stt-remote-endpoint-v1.4.268-r2": "f6c5f7cfd0e8b3be8f054db5ed0f37c8ff3da84e"
+        "adapt/stt-remote-endpoint-v1.4.273": "f05de2725a992ffcf1a2564264b1d7d909a49927"
       }
     },
     {
-      "selector": "fix/markdown-footnotes@adapt/markdown-footnotes-v1.4.268-r1",
+      "selector": "fix/markdown-footnotes@adapt/markdown-footnotes-v1.4.273",
       "refs": {
         "fix/markdown-footnotes": "44f9411e2a6c1ebe134c400362d8133b31fde7c3",
-        "adapt/markdown-footnotes-v1.4.268-r1": "e888e328502a65df128eb81519b8651af8255fd7"
+        "adapt/markdown-footnotes-v1.4.273": "4e61ab2b4ac264aff221f9dc6adc33919f39491a"
       }
     },
     {
-      "selector": "fix/agent-picker-launchable-first@adapt/agent-picker-launchable-first-v1.4.268-r1",
-      "refs": {
-        "fix/agent-picker-launchable-first": "b1be64a86fd824e739608dd81be5d1874e433a53",
-        "adapt/agent-picker-launchable-first-v1.4.268-r1": "1a6ebfd0484fea7612f473a9e63ccb4c3f1c0a91"
-      }
-    },
-    {
-      "selector": "fork/release-identity@adapt/release-identity-v1.4.268-r1",
+      "selector": "fork/release-identity@adapt/release-identity-v1.4.273",
       "refs": {
         "fork/release-identity": "96d4bcacd6f68228001bbb4440889c6124fda8af",
-        "adapt/release-identity-v1.4.268-r1": "856e9121aad549bdecb9f1bf9a968cd5b862b7c0"
+        "adapt/release-identity-v1.4.273": "d6643b8ed7312172d2a64f091b253247ba8b06e5"
       }
     }
   ],
   "retainedFiles": {
-    "config/build-plugins/bundled-main-dependencies.ts": "fb82172c3989278612795f4e42fcb2f9b163b3df8bb09a86df8cab49137e7b7e",
-    "config/path-literal-baseline.txt": "ae750c0bdfff47d072879f3ab25e4e5e6cb34bef424b2dda20a6b56588a0a4c4",
-    "config/scripts/ci/unit-selection/check-test-file-runners.mjs": "37f57d312ca679cd5272878e0392353725036595128f735e4efa47659e80ec4f",
+    "config/build-plugins/bundled-main-dependencies.ts": "653fdcfbc97436402e67cab24e120628f418080fa7e620e8240d1692fd3cb61b",
+    "config/path-literal-baseline.txt": "9e1021cd3b3d34db4bc464874bb6f49a828b9a5bb24960ae50f7b36ac2b6847e",
+    "config/scripts/ci/unit-selection/check-test-file-runners.mjs": "300563e4cd1a3ac47467b37d5cbf1cafc20cf2569f5cdeffee43c5abd9e75986",
     "config/scripts/orcad-distribution/template/verify-packaged-orcad-template.cjs": "716361fca4635513bdaf84b4d4c32d0451ddb635106d0c97091c21e328930318",
     "docs/reference/remote-dictation-contextual-correction.md": "52eb0693e74545a3336c55c1cac8c8f7e1ff7fc59da3476a0ae0788921013eab",
-    "package.json": "aa101a1ac7ef8ad86f6f0903c2f98e7d35d3191abeb4f65c7f8a1a33d4b009d2",
-    "pnpm-lock.yaml": "b47bc698172faa53cd632ef697c0de9d89a9d325b2338f32b72a33ab713c345c",
+    "package.json": "6e94f4e64bc4e22bffa17abd20f56f7af562dc1583443e00099f5e8576e23e2d",
+    "pnpm-lock.yaml": "5559e23c8d559e4eddd7efcb64269b60a9c6ca57a2e3dfde6dbcbbdb149d5cfc",
     "src/main/ipc/speech-provider-handlers.ts": "cb892c4640cfde7bf6fa07a716703a4a37614c4c857a94b47f9a82b015f99e8e",
     "src/main/ipc/speech.ts": "3abfcfe1bee239f9fdb4cc51233f8430a17c9400067f71cd4bb0b7c4034e4b63",
     "src/main/orcad/__fixtures__/fake-orcad-electron-sidecar.cjs": "04daa89ef6fe7f0cd4ebfa875d85cbe2def9a5b1aa083eb114e0f27d82843f9e",
@@ -93,12 +86,15 @@
     "src/main/startup/gpu-recovery/gpu-lifecycle.ts": "5109458f2463d0fea282e26003ab4d9efe6ec0908d52dc0b65831a5ea6c990c3",
     "src/main/updater/electron-updater-loader.test.ts": "07125e9f523bdf481ed23bc4934dc42d4bb62ee8d7016ffbdd6e47b1ff5becf0",
     "src/main/updater/electron-updater-loader.ts": "8dccd957ad808087b1d139414408d85055fe6f68b618c1119c13f22dd04c717d",
-    "src/main/updater/lifecycle/updater-install-support.ts": "d4cc75700c78eaf95eaca6d46c9f4605f6190c5480cbf64ea41eb36f5bd247a4",
-    "src/main/updater/releases/updater-fork-release-feed.test.ts": "67757bdf6ee48d058968a7217769a94f6f1ffea0c879f85a141f10260475748d",
-    "src/main/updater/releases/updater-prerelease-feed.ts": "f351701ff4046de579f306573b24007d7637012c46c13d68d95765d677ee5e84",
-    "src/main/updater/releases/updater-release-feed.ts": "29ddcdb6f07293bbab86eaf9266d4c90391d03bc67ecf22017a474939fb873e9",
+    "src/main/updater/lifecycle/updater-install-support.ts": "aaca3831f2bb5d4f826fb1767c226a4d1ae9f606f3f018bd9cf25c6dc3ef9594",
+    "src/main/updater/releases/updater-fork-release-feed.test.ts": "edc3c9b0493b531129d98114203e68db3bde24766c9edae14cbc51f3273bfc41",
+    "src/main/updater/releases/updater-prerelease-feed.ts": "8515ad0ca0bf982a3869ab1e5dd69dbf8272600586fb9bf6c194148c80422796",
+    "src/main/updater/releases/updater-release-builds.ts": "8e8972b7ffef50ad0a7000a99d541c05e71dd39a212bc2906858a100880d5f99",
+    "src/main/updater/releases/updater-release-feed.ts": "d836a1ddfc6bcec9cacd7737640e1dea24383d6e6a15b5a4299de4c041fba1ee",
+    "src/main/updater/releases/updater-release-policy.ts": "43fde25f21ab46da08739cc4a7de4b73d1c4fe0d072bca5b51b5733a86e587f9",
     "src/main/updater/releases/updater-release-readiness.ts": "b91849d9fc205aa12708e457047e75bc87dc2a76dcd7ca74d130edd09b2e404c",
-    "src/main/updater/updater-events.ts": "d2a9a6af4731231f861a00d2318a8460fa184927f6112c92f770f962bec122e4",
+    "src/main/updater/testing/updater-net-request.fixture.ts": "431a29c3d8516e9772796eda30dc2a4f409b5319ed43f76e6a33f9a993aba331",
+    "src/main/updater/updater-events.ts": "f57762f5aae47767eb887c41bc4a0665047ccd56c8d7f5443161b0d11a85f31a",
     "src/preload/api/speech/speech-api.ts": "d710c1f3838f75c684b0f943042afb12f7847c649455666c4d3d4df3764a009f",
     "src/preload/api/speech/speech-bridge.ts": "b43fd01b3dd197ee470130212f32610b45968b62080e7931194d3a42b4b0485f",
     "src/renderer/src/components/dictation/DictationController.session-indicator.test.tsx": "4a10793155dadda451e1714c1ce4b78a642322b15c40125e522fb906cb8f764d",
@@ -122,21 +118,18 @@
     "src/renderer/src/components/editor/rich-markdown/raw-source/raw-markdown-html.ts": "b81966d9116b2003da5c87e8533405cbdbb465c3d52d99abcf6ae575c5d991e7",
     "src/renderer/src/components/editor/rich-markdown/schema/rich-markdown-extensions.ts": "f2ded14986bbd550e91dba84f7192156666ecf9f264664277ec2fb7d808179be",
     "src/renderer/src/components/editor/rich-markdown/tables/rich-markdown-table.ts": "d18af9201f970c0a23e14f9d7562b588e3f75be95194233de0db57596393f77a",
-    "src/renderer/src/components/settings/updates/GeneralUpdateSettingsSection.tsx": "35181cf4a5ab21dc7d5c99b3ff373d870ead3abfa5b0066c3a2f98ee01329e4c",
+    "src/renderer/src/components/settings/updates/GeneralUpdateSettingsSection.tsx": "baef5740cf6743113258c4705c6e7cd42e2a43b07816568c5423b8e55b13b1cf",
     "src/renderer/src/components/settings/voice/RemoteSttEndpointDialog.tsx": "d6fbd3f9dca24783cd823d709edf481dfb01eab7304c64e323bf2347bfc4aa7b",
     "src/renderer/src/components/settings/voice/RemoteSttEndpointSettingsRow.tsx": "bfc17fea5dc94761aca302f04505dc4f3ea9c8211a896be98e9729b725b4e0f8",
     "src/renderer/src/components/settings/voice/VoicePane.tsx": "f927a24b892c312860b54c926b887ce8c3e35423ce08bcf86667fc60038e7d85",
     "src/renderer/src/components/settings/voice/remote-stt-default-url.ts": "35da7d8b57a97a96214e10ad88b46fb5817da3a8abdb9e2cc22072e24928b774",
     "src/renderer/src/components/settings/voice/use-remote-stt-endpoint.ts": "3ed60300e82ad746c8783328e4a1a826d91722eec87dcb5e2d5e5aafccb6ad8d",
-    "src/renderer/src/i18n/locales/en.json": "20f7d6104e9653ad0b5bda74ff8ba4a7cb7925195063ded8868f91e169fb6477",
+    "src/renderer/src/i18n/locales/en.json": "708ba7488422a7215cf935c78825de98651026b316d1f522cbeb94a5cbca3628",
     "src/renderer/src/web/preload-api/agents/web-speech-api.ts": "0ed3e80c40bd533c4e4feee0b21c3d515a56fc4c8a4ad9fad7805bfbd24d3f19",
-    "src/shared/agent-launch/picker/agent-launch-picker-entries.test.ts": "a010e11bb67ad9b7f48cbd74088b79a79318e55c5729b54a3dd1cc3eeb0cbf3d",
-    "src/shared/agent-launch/picker/agent-launch-picker-rows.ts": "0783acc504adc7fb734e6f69b60382ba812df85e0198f2ca3ad7091b045cebc7",
-    "src/shared/agent-launch/picker/agent-launch-picker.ts": "f0c9e6cbbcea1573f3d95a4975a0b729e839fbf4097dda1940f856fb74c1893f",
     "src/shared/fork-build-stamp.ts": "18bad0956ab4abb885111199ee08782584ea53fa12c0b66d145a107e19ae3d2a",
     "src/shared/fork-build.test.ts": "f4821add45bab5f208b54721b1b117f93efd41af7f3d4529686c24b88eede906",
     "src/shared/fork-build.ts": "d4b462e2b83734901c76d8e9fd59101b513c5e48a90e4df73e002c8fec77b8f9",
     "src/shared/speech/speech-types.ts": "aee4b1eefe214bde7246e82c0e5557a6085c68c47d14e46b0c9f548722b6ef87",
-    "src/shared/updater/release-channel.ts": "833de0b00dd3599c89ac2c942527f18d83ea35cf7ebd63eb589aab5dbb5c9c6a"
+    "src/shared/updater/release-channel.ts": "b80c58c101f23ea9803436634bf3d6b7dbb32640c596c3c7d3e9353e8d5d7c31"
   }
 }
