@@ -1,3 +1,4 @@
+import { registerSpeechProviderHandlers } from './speech-provider-handlers'
 import {
   ipcMain,
   BrowserWindow,
@@ -13,23 +14,8 @@ import { dictationTextSettingsFor } from '../../shared/speech/dictation/dictatio
 import { SPEECH_MODEL_CATALOG } from '../speech/model-catalog'
 import { deleteLocalSpeechModel } from '../speech/speech-model-deletion'
 import { getSpeechModelManager, getSpeechSttService } from '../speech/speech-runtime-service'
-import {
-  clearOpenAiSpeechApiKey,
-  getOpenAiSpeechApiKeyProtection,
-  hasOpenAiSpeechApiKey
-} from '../speech/openai-api-key-store'
-import {
-  saveVerifiedOpenAiCompatibleSpeechProvider,
-  saveVerifiedOpenAiSpeechApiKey
-} from '../speech/openai-api-key-verification'
-import {
-  clearOpenAiCompatibleSpeechProvider,
-  summarizeOpenAiCompatibleSpeechProvider
-} from '../speech/openai-compatible-speech-provider-store'
-import type {
-  DictationContext,
-  OpenAiCompatibleSpeechProvider
-} from '../../shared/speech/speech-types'
+import { resolveDictationModelId } from '../speech/speech-model-pin'
+import type { DictationContext } from '../../shared/speech/speech-types'
 import type { Store } from '../persistence/loading-store/store'
 import type { DictationCleanupResult } from '../../shared/speech/dictation/dictation-cleanup'
 import { cancelDictationCleanup, cleanUpDictatedText } from '../speech/dictation-cleanup-service'
@@ -76,35 +62,10 @@ export function registerSpeechHandlers(
     }
   })
 
-  ipc.handle('speech:getCatalog', () => SPEECH_MODEL_CATALOG)
-  ipc.handle('speech:getModelStates', () => getSpeechModelManager(store).getModelStates())
-  ipc.handle('speech:getOpenAiApiKeyStatus', async () => ({
-    configured: await hasOpenAiSpeechApiKey(),
-    protection: await getOpenAiSpeechApiKeyProtection()
-  }))
-  ipc.handle('speech:saveOpenAiApiKey', async (_event, apiKey: string) => {
-    await saveVerifiedOpenAiSpeechApiKey(apiKey)
-    return { configured: true, protection: await getOpenAiSpeechApiKeyProtection() }
-  })
-  ipc.handle('speech:clearOpenAiApiKey', async () => {
-    await clearOpenAiSpeechApiKey()
-    return { configured: false, protection: null }
-  })
-  ipc.handle('speech:getOpenAiCompatibleProvider', async () => {
-    try {
-      return await summarizeOpenAiCompatibleSpeechProvider()
-    } catch {
-      return null
-    }
-  })
-  ipc.handle(
-    'speech:saveOpenAiCompatibleProvider',
-    (_event, input: OpenAiCompatibleSpeechProvider) =>
-      saveVerifiedOpenAiCompatibleSpeechProvider(input)
-  )
-  ipc.handle('speech:clearOpenAiCompatibleProvider', () => clearOpenAiCompatibleSpeechProvider())
-
-  ipc.handle('speech:downloadModel', async (event, modelId: string) => {
+  ipc.handle("speech:getCatalog", () => SPEECH_MODEL_CATALOG)
+  ipc.handle("speech:getModelStates", () => getSpeechModelManager(store).getModelStates())
+  registerSpeechProviderHandlers(ipc)
+  ipc.handle("speech:downloadModel", async (event, modelId: string) => {
     const manager = getSpeechModelManager(store)
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) {
@@ -225,7 +186,7 @@ export function registerSpeechHandlers(
         }
 
         await getSpeechSttService(store).startDictation(
-          modelId,
+          resolveDictationModelId(modelId) ?? modelId,
           (msg) => {
             if (msg.type === 'ready') {
               sessionReady = true
@@ -245,6 +206,17 @@ export function registerSpeechHandlers(
                 break
               case 'speech-pending':
                 window.webContents.send('speech:pending', { pending: msg.pending, sessionId })
+                break
+              case 'segment-progress':
+                window.webContents.send('speech:segmentProgress', {
+                  silenceMs: msg.silenceMs,
+                  pauseMs: msg.pauseMs,
+                  segmentMs: msg.segmentMs,
+                  maxMs: msg.maxMs,
+                  limitWarningMs: msg.limitWarningMs,
+                  cutReason: msg.cutReason,
+                  sessionId
+                })
                 break
               case 'stopped':
                 cleanupSessionListener()
