@@ -15,6 +15,10 @@ vi.mock('electron', () => ({
   net: { fetch: netFetchMock, request: netRequestMock }
 }))
 
+vi.mock('./updater-release-api-token', () => ({
+  resolveReleaseApiToken: async () => null
+}))
+
 const ORIGINAL_PLATFORM = process.platform
 const FORK = 'https://github.com/example/orca-fork'
 
@@ -28,8 +32,19 @@ function atomFeed(tags: string[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?><feed>${entries}</feed>`
 }
 
-function serveForkReleases(tags: string[], latest: string): void {
+function serveForkReleases(tags: string[], latest: string, older: string[] = []): void {
   netFetchMock.mockImplementation((url: string) => {
+    if (url === 'https://api.github.com/repos/example/orca-fork/releases?per_page=20&page=1') {
+      return Promise.resolve({
+        ok: true,
+        json: async () =>
+          older.map((tag) => ({
+            tag_name: tag,
+            published_at: '2026-10-01T00:00:00Z',
+            assets: [{ name: 'orca-linux.AppImage' }, { name: 'latest-linux.yml' }]
+          }))
+      })
+    }
     if (url === `${FORK}/releases.atom`) {
       return Promise.resolve({ ok: true, text: () => Promise.resolve(atomFeed(tags)) })
     }
@@ -105,6 +120,62 @@ describe('updater release feed in a fork build', () => {
     const { fetchLatestStableReleaseTag } = await import('./updater-prerelease-feed')
 
     await expect(fetchLatestStableReleaseTag()).resolves.toBe('v1.4.253-hub.4')
+  })
+
+  it('offers stable fork builds meeting a team minimum without accepting upstream tags', async () => {
+    serveForkReleases(['v1.4.254', 'v1.4.254-hub.1', 'v1.4.253-hub.5'], 'v1.4.254-hub.1')
+    const { fetchNewerReleaseTagsWithReadiness } = await import('./updater-prerelease-feed')
+    await expect(
+      fetchNewerReleaseTagsWithReadiness('1.4.253-hub.4', 1, {
+        includePrerelease: false,
+        minimumVersion: '1.4.254'
+      })
+    ).resolves.toMatchObject({ tags: ['v1.4.254-hub.1'], state: 'ready' })
+  })
+
+  it('fills a delayed stable offer from the fork REST history', async () => {
+    serveForkReleases(['v1.4.254-hub.1'], 'v1.4.254-hub.1', ['v1.4.253-hub.5'])
+    const { fetchNewerReleaseTagsWithReadiness } = await import('./updater-prerelease-feed')
+    await expect(
+      fetchNewerReleaseTagsWithReadiness('1.4.253-hub.4', 1, {
+        includePrerelease: false,
+        minReleaseAgeMs: 7 * 86400000,
+        now: Date.parse('2026-11-09T00:00:00Z')
+      })
+    ).resolves.toMatchObject({ tags: ['v1.4.253-hub.5'], state: 'ready' })
+    expect(netFetchMock.mock.calls.some(([url]) => String(url).includes('stablyai'))).toBe(false)
+  })
+
+  it('preserves required minimum, forced update and delay rules for fork builds', async () => {
+    const { requiredMinimumVersion, requiresTeamRelease, releaseSelectionPolicy } =
+      await import('./updater-release-policy')
+    expect(
+      requiredMinimumVersion({ orgIds: ['org'], minimumVersion: '1.4.253' }, '1.4.253-hub.4')
+    ).toBeUndefined()
+    expect(
+      requiresTeamRelease({ orgIds: ['org'], forceUpdates: true }, '1.4.253', '1.4.253-hub.5')
+    ).toBe(true)
+    expect(
+      releaseSelectionPolicy({
+        team: {
+          orgIds: ['org'],
+          minimumVersion: '1.4.254',
+          updateChannel: 'stable',
+          forceUpdates: true,
+          forceUpdateDelayDays: 7
+        },
+        variant: 'default',
+        version: '1.4.253-hub.4',
+        includePrerelease: true,
+        ignoreDelay: true,
+        getUpdateDelayDays: () => 0
+      })
+    ).toEqual({
+      isPerfCheck: false,
+      includePrerelease: false,
+      delayDays: 7,
+      minimumVersion: '1.4.254'
+    })
   })
 
   it('links fork releases to the fork repo and upstream releases to upstream', async () => {

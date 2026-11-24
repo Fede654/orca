@@ -161,6 +161,9 @@ export function getVersionChannel(version: string): ReleaseChannel | null {
   if (!isValidAppVersion(normalized)) {
     return null
   }
+  if (isForkReleaseVersion(normalized)) {
+    return 'stable'
+  }
   if (isHourlyVersion(normalized)) {
     return 'hourly'
   }

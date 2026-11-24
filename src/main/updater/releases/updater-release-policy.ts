@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
+import { forkAwareAppVersion, isForkReleaseVersion } from '../../../shared/fork-build'
 import type { OrcaCloudTeamPolicy } from '../../../shared/orca-profiles/orca-cloud-team-policy'
 import type { UpdateCheckVariant } from '../lifecycle/updater-types'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
@@ -62,7 +63,10 @@ export function applyEmergencyUpdateFloor(
     return team
   }
   const channel = getVersionChannel(minimum)
-  if ((channel !== 'stable' && channel !== 'rc') || compareVersions(currentVersion, minimum) >= 0) {
+  if (
+    (channel !== 'stable' && channel !== 'rc') ||
+    meetsReleaseMinimumVersion(currentVersion, minimum)
+  ) {
     return team
   }
   return {
@@ -74,12 +78,22 @@ export function applyEmergencyUpdateFloor(
   }
 }
 
+export function meetsReleaseMinimumVersion(version: string, minimum: string): boolean {
+  const comparable =
+    isForkReleaseVersion(version) && !isForkReleaseVersion(minimum)
+      ? version.replace(/-hub\.\d+$/, '')
+      : version
+  return compareVersions(comparable, minimum) >= 0
+}
+
 export function requiredMinimumVersion(
   policy: TeamUpdatePolicy | undefined,
   currentVersion: string
 ): string | undefined {
   const minimum = policy?.minimumVersion
-  return minimum && isValidVersion(currentVersion) && compareVersions(currentVersion, minimum) < 0
+  return minimum &&
+    isValidVersion(currentVersion) &&
+    !meetsReleaseMinimumVersion(currentVersion, minimum)
     ? minimum
     : undefined
 }
@@ -90,8 +104,9 @@ export function requiresTeamRelease(
   version: string
 ): boolean {
   const minimum = requiredMinimumVersion(policy, currentVersion)
-  return (minimum || policy?.forceUpdates === true) && compareVersions(version, currentVersion) > 0
-    ? !minimum || compareVersions(version, minimum) >= 0
+  return (minimum || policy?.forceUpdates === true) &&
+    compareVersions(version, forkAwareAppVersion(currentVersion)) > 0
+    ? !minimum || meetsReleaseMinimumVersion(version, minimum)
     : false
 }
 

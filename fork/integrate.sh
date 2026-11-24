@@ -275,6 +275,7 @@ if [ -n "${FORK_VERIFY_TREE:-}" ]; then
 fi
 
 if [ "$DRY" -eq 1 ]; then
+  info "== candidate: $(w rev-parse HEAD); tree: $(w rev-parse HEAD^{tree})"
   info ""; info "OK (sin tag ni rama): la serie aplica sobre $BASE_NAME ($(w rev-list --count "$BASE_REV..HEAD") commits)."
   [ -z "$WARN" ] || printf 'avisos:\n%s' "$WARN"
   exit 0

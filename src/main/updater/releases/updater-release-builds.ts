@@ -1,4 +1,5 @@
 import { net } from 'electron'
+import { FORK_BUILD, getAppReleaseRepo, isForkReleaseVersion } from '../../../shared/fork-build'
 import {
   findInstallerAssetName,
   getReleaseRepoForChannel,
@@ -139,6 +140,9 @@ function parseReleaseEntry(
   }
   const tag = entry.tag_name
   const version = normalizeTagToVersion(tag)
+  if (FORK_BUILD && repo === getAppReleaseRepo() && !isForkReleaseVersion(version)) {
+    return null
+  }
   const channel = getVersionChannel(version)
   if (!isValidVersion(version) || !channel) {
     return null
@@ -173,7 +177,10 @@ async function fetchReleaseBuildsPage(
   page: ReleasePage,
   budget?: AbortSignal
 ): Promise<{ builds: ReleaseBuild[]; isLastPage: boolean }> {
-  const repo = getReleaseRepoForChannel(channel)
+  const repo =
+    channel === 'stable' || channel === 'rc'
+      ? getAppReleaseRepo()
+      : getReleaseRepoForChannel(channel)
   // Skip a known-exhausted token bucket and try the separate per-IP quota.
   const credential = await resolveReleaseApiToken()
   const tokenBucketBlocked =
@@ -252,6 +259,9 @@ export function resolveTargetBuild(channel: ReleaseChannel, tag: string): Resolv
   if (!isValidVersion(version)) {
     throw new UpdaterCodedError('invalidReleaseTag', { tag })
   }
-  const repo = getReleaseRepoForChannel(channel)
+  const repo =
+    channel === 'stable' || channel === 'rc'
+      ? getAppReleaseRepo()
+      : getReleaseRepoForChannel(channel)
   return { tag, version, feedUrl: getReleaseDownloadUrlForRepo(repo, tag) }
 }

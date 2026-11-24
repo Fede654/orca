@@ -1,4 +1,5 @@
 import { net } from 'electron'
+import { meetsReleaseMinimumVersion } from './updater-release-policy'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
 import { FORK_BUILD, getAppReleaseRepo, isForkReleaseVersion } from '../../../shared/fork-build'
 import {
@@ -166,7 +167,7 @@ export async function fetchNewerReleaseTagsWithReadiness(
   const candidates = (list: ReleaseFeedTag[]): ReleaseFeedTag[] => {
     const channel = selectChannelCandidates(list, includePrerelease, options.releaseFilter)
     return minimum
-      ? channel.filter(({ version }) => compareVersions(version, minimum) >= 0)
+      ? channel.filter(({ version }) => meetsReleaseMinimumVersion(version, minimum))
       : channel
   }
   const channelCandidates = candidates(tags)
@@ -230,7 +231,7 @@ function selectChannelCandidates(
   }
   return includePrerelease
     ? tags.filter(({ tag }) => !isPerfPrereleaseTag(tag))
-    : tags.filter(({ version }) => !isPrereleaseVersion(version))
+    : tags.filter(({ version }) => !isPrereleaseVersion(version) || isForkReleaseVersion(version))
 }
 
 async function fetchOlderReleaseTags(
