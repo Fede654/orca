@@ -153,6 +153,16 @@ describe('updater release feed in a fork build', () => {
       requiredMinimumVersion({ orgIds: ['org'], minimumVersion: '1.4.253' }, '1.4.253-hub.4')
     ).toBeUndefined()
     expect(
+      requiredMinimumVersion({ orgIds: ['org'], minimumVersion: '1.4.253-hub.5' }, '1.4.253')
+    ).toBe('1.4.253-hub.5')
+    expect(
+      requiresTeamRelease(
+        { orgIds: ['org'], minimumVersion: '1.4.253-hub.5' },
+        '1.4.253',
+        '1.4.253-hub.5'
+      )
+    ).toBe(true)
+    expect(
       requiresTeamRelease({ orgIds: ['org'], forceUpdates: true }, '1.4.253', '1.4.253-hub.5')
     ).toBe(true)
     expect(

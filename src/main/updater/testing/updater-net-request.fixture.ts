@@ -10,12 +10,8 @@ type NetFetchResponse = {
 export function installNetRequestFetchAdapter(netRequestMock: Mock, netFetchMock: Mock): void {
   netRequestMock.mockImplementation(
     (options: { method?: string; redirect?: string; url: string }) => {
-      const request = new EventEmitter() as EventEmitter & {
-        abort: Mock
-        end: Mock
-      }
-      request.abort = vi.fn()
-      request.end = vi.fn(() => {
+      const request = Object.assign(new EventEmitter(), { abort: vi.fn(), end: vi.fn() })
+      request.end.mockImplementation(() => {
         Promise.resolve(
           netFetchMock(options.url, { method: options.method, redirect: options.redirect })
         ).then(
