@@ -91,6 +91,16 @@ export type SpeechPendingEvent = {
   sessionId: string
 }
 
+export type SpeechSegmentProgressEvent = {
+  silenceMs: number
+  pauseMs: number
+  segmentMs: number
+  maxMs: number
+  limitWarningMs: number
+  cutReason?: 'pause' | 'limit'
+  sessionId: string
+}
+
 /** Desktop audio posted from the preload straight to the speech process; 'end' follows the last frame. */
 export type SpeechAudioPortMessage =
   | { type: 'feed'; samples: Float32Array; sampleRate: number }
