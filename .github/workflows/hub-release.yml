@@ -1,0 +1,263 @@
+# Builds stage smoke-checked artifacts only; fork/promote-release.py publishes after review.
+name: Hub release
+
+on:
+  push:
+    tags: ['v*-hub.*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Ref a construir sin publicar (rama, tag o sha)
+        required: true
+        default: feat/integration
+      fork_version:
+        description: Versión X.Y.Z-hub.N a sellar (para probar el updater); vacío = sin sello
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hub-release-${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  appimage:
+    if: github.repository == 'Fede654/orca'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      candidate: ${{ steps.candidate.outputs.sha }}
+    env:
+      ORCA_BACKGROUND_LAUNCH: '1'
+      ORCA_CI_MAIN_SOURCEMAPS: '0'
+      # Los hubs son linux-x64: el template de orcad lleva solo ese target y el empaquetado
+      # verifica solo ese (tema fork/partial-orcad-template). Sin el tema, el empaquetado falla.
+      ORCA_ORCAD_TEMPLATE_TARGETS: linux-x64-glibc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          persist-credentials: false
+
+      - name: Pin candidate
+        id: candidate
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Mismas acciones compuestas que el job "package" de upstream (pr.yml).
+      - uses: ./.github/actions/install-node-dependencies
+        with:
+          native-runtime: electron
+          node-version: '24'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
+      - uses: ./.github/actions/install-mobile-dependencies
+
+      - name: Restore native components
+        uses: ./.github/actions/prepare-wayland-clipboard
+        with:
+          build: 'false'
+      - name: Build native components
+        run: bash .github/actions/prepare-wayland-clipboard/build-or-validate.sh
+
+      # Sello del fork (tema fork/release-identity, src/shared/fork-build.ts): About muestra
+      # X.Y.Z-hub.N y el updater sigue las releases de este repo. Sin sello, como upstream.
+      - name: Stamp the fork build
+        env:
+          FORK_VERSION_IN: ${{ github.event_name == 'push' && github.ref_name || inputs.fork_version }}
+        run: bash fork/stamp-fork-build.sh "$FORK_VERSION_IN"
+
+      - name: Build package inputs
+        run: |
+          pnpm run build:cli
+          pnpm run build:wsl-guest
+          pnpm run build:electron-vite
+          pnpm run build:web-from-renderer
+          pnpm run build:mobile-web
+
+      # El servidor headless (orcad) corre desde este template: sin él la build no sirve al hub.
+      - name: Build the orcad server template (linux-x64-glibc)
+        run: |
+          # Por script de pnpm y no por ruta: el script cambió de carpeta entre releases.
+          pnpm run build:orcad
+          pnpm run build:orcad-template --targets "$ORCA_ORCAD_TEMPLATE_TARGETS"
+
+      # El job de mac empaqueta este mismo template: con él, el escritorio despliega orcad en
+      # hosts SSH linux-x64.
+      - name: Keep the orcad template for the macOS job
+        uses: actions/upload-artifact@v7
+        with:
+          name: orcad-template
+          path: out/orcad-template
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Package AppImage
+        env:
+          ORCA_REUSE_PREPARED_NATIVE_RUNTIME: '1'
+        run: pnpm exec electron-builder --config config/electron-builder.config.cjs --linux AppImage --x64 --publish never
+
+      # El manifiesto de electron-builder lleva la versión de la app (X.Y.Z); el updater del
+      # fork compara por el tag, así que va con X.Y.Z-hub.N. Solo el AppImage, verificado.
+      - name: Fork update manifest
+        if: env.FORK_VERSION != ''
+        run: |
+          set -euo pipefail
+          m=dist/latest-linux.yml
+          test -s "$m" || { echo "electron-builder no generó $m"; ls dist; exit 1; }
+          python3 - "$m" dist/orca-linux.AppImage "$FORK_VERSION" <<'PY'
+          import base64, hashlib, re, sys
+          path, app, version = sys.argv[1:]
+          text = open(path).read()
+          digest = hashlib.sha512()
+          with open(app, 'rb') as f:
+              for block in iter(lambda: f.read(1 << 20), b''):
+                  digest.update(block)
+          sha = base64.b64encode(digest.digest()).decode()
+          assert re.search(r'^path: orca-linux\.AppImage$', text, re.M), 'path no es orca-linux.AppImage'
+          urls = re.findall(r'^\s*- url: (.+)$', text, re.M)
+          assert urls == ['orca-linux.AppImage'], f'archivos inesperados: {urls}'
+          shas = set(re.findall(r'^\s*sha512: (.+)$', text, re.M))
+          assert shas == {sha}, f'sha512 no coincide con el AppImage: {shas} != {sha}'
+          text, n = re.subn(r'^version: .*$', f'version: {version}', text, count=1, flags=re.M)
+          assert n == 1, 'sin línea version'
+          open(path, 'w').write(text)
+          print(text)
+          PY
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          app="$GITHUB_WORKSPACE/dist/orca-linux.AppImage"
+          test -s "$app"
+          cd "$RUNNER_TEMP"
+          "$app" --appimage-extract >/dev/null
+          root="$RUNNER_TEMP/squashfs-root"
+          test -x "$root/AppRun"
+          test -x "$root/orca-ide"
+          server="$(find "$root/resources/orcad-template" -name orcad-server.js | head -1)"
+          test -n "$server" || { echo "falta orcad-server.js en el template"; exit 1; }
+          # Cada feature parametrizado de la serie tiene que estar en el servidor empaquetado.
+          if [ -f "$GITHUB_WORKSPACE/fork/series" ] && grep -q persistent-browser-profile "$GITHUB_WORKSPACE/fork/series"; then
+            grep -q ORCA_BROWSER_PROFILE_DIR "$server" || { echo "ORCA_BROWSER_PROFILE_DIR no está en $server"; exit 1; }
+          fi
+          # El dictado remoto manda Opus: libopus-wasm tiene que estar en la app y en orcad (si no, cae a WAV).
+          if [ -f "$GITHUB_WORKSPACE/fork/series" ] && grep -q stt-remote-endpoint "$GITHUB_WORKSPACE/fork/series"; then
+            # Los chunks de main van desempaquetados (asarUnpack 'out/main/chunks/**'): se busca en los dos.
+            grep -rqs _oc_encode_float "$root/resources/app.asar" "$root/resources/app.asar.unpacked/out/main" \
+              || { echo "libopus-wasm no está en la app (app.asar ni app.asar.unpacked/out/main)"; exit 1; }
+            grep -q _oc_encode_float "$server" || { echo "libopus-wasm no está en $server"; exit 1; }
+          fi
+          # Build sellada: el sello está en la app (main y renderer).
+          if [ -n "${FORK_VERSION:-}" ]; then
+            grep -rqsF -e "\"$FORK_VERSION\"" -e "'$FORK_VERSION'" \
+              "$root/resources/app.asar" "$root/resources/app.asar.unpacked/out" \
+              || { echo "el sello $FORK_VERSION no está en la app"; exit 1; }
+            grep -q "^version: $FORK_VERSION$" "$GITHUB_WORKSPACE/dist/latest-linux.yml"
+          fi
+          grep -q '"linux-x64-glibc"' "$root/resources/orcad-template/orcad-template.json" \
+            || { echo "el template no declara linux-x64-glibc"; exit 1; }
+          sha256sum "$app" | tee "$GITHUB_WORKSPACE/dist/orca-linux.AppImage.sha256"
+
+      - name: Record Linux candidate after smoke
+        run: python3 fork/staged-assets.py record --root dist --platform linux --commit "$(git rev-parse HEAD)" --tag "${FORK_VERSION:+v$FORK_VERSION}" --run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
+
+      - name: Keep the smoke-checked AppImage
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-linux
+          path: |
+            dist/orca-linux.AppImage
+            dist/orca-linux.AppImage.sha256
+            dist/latest-linux.yml
+            dist/linux.json
+          if-no-files-found: error
+          retention-days: 30
+
+  # Escritorio para macOS (arm64) que se conecta a los hubs. Sin certificado de Apple: va
+  # firmado ad-hoc, Gatekeeper pide abrirlo con clic derecho > Abrir la primera vez y el
+  # updater no puede instalar (Squirrel.Mac exige firma): se actualiza bajando el dmg.
+  # Reutiliza Linux exitoso; una falla macOS deja todo en staging.
+  macos:
+    needs: appimage
+    if: github.repository == 'Fede654/orca'
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      ORCA_BACKGROUND_LAUNCH: '1'
+      ORCA_CI_MAIN_SOURCEMAPS: '0'
+      ORCA_ORCAD_TEMPLATE_TARGETS: linux-x64-glibc
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.appimage.outputs.candidate }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/install-node-dependencies
+        with:
+          native-runtime: electron
+          node-version: '24'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            mobile/pnpm-lock.yaml
+      - uses: ./.github/actions/install-mobile-dependencies
+
+      - name: Stamp the fork build
+        env:
+          FORK_VERSION_IN: ${{ github.event_name == 'push' && github.ref_name || inputs.fork_version }}
+        run: bash fork/stamp-fork-build.sh "$FORK_VERSION_IN"
+
+      # En darwin build:release también compila los helpers nativos en Swift.
+      - name: Build package inputs
+        run: pnpm run build:release
+
+      - name: Restore the orcad template built for the AppImage
+        uses: actions/download-artifact@v8
+        with:
+          name: orcad-template
+          path: out/orcad-template
+
+      - name: Package dmg (arm64, ad-hoc)
+        env:
+          ORCA_REUSE_PREPARED_NATIVE_RUNTIME: '1'
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: >-
+          pnpm exec electron-builder --config config/electron-builder.config.cjs
+          --mac dmg --arm64 -c.mac.identity=- --publish never
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          dmg="$GITHUB_WORKSPACE/dist/orca-macos-arm64.dmg"
+          test -s "$dmg"
+          app="$(find "$GITHUB_WORKSPACE/dist/mac-arm64" -maxdepth 1 -name '*.app' | head -1)"
+          test -n "$app" || { echo "falta el .app en dist/mac-arm64"; ls dist; exit 1; }
+          codesign --verify --deep --strict "$app"
+          res="$app/Contents/Resources"
+          grep -q '"linux-x64-glibc"' "$res/orcad-template/orcad-template.json" \
+            || { echo "el template no declara linux-x64-glibc"; exit 1; }
+          if [ -n "${FORK_VERSION:-}" ]; then
+            grep -rqsF -e "\"$FORK_VERSION\"" -e "'$FORK_VERSION'" "$res/app.asar" "$res/app.asar.unpacked/out" \
+              || { echo "el sello $FORK_VERSION no está en la app"; exit 1; }
+          fi
+          shasum -a 256 "$dmg" | tee "$dmg.sha256"
+
+      - name: Record macOS candidate after smoke
+        run: python3 fork/staged-assets.py record --root dist --platform macos --commit "$(git rev-parse HEAD)" --tag "${FORK_VERSION:+v$FORK_VERSION}" --run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
+
+      - name: Keep the smoke-checked dmg
+        uses: actions/upload-artifact@v7
+        with:
+          name: staged-macos
+          path: |
+            dist/orca-macos-arm64.dmg
+            dist/orca-macos-arm64.dmg.sha256
+            dist/macos.json
+          if-no-files-found: error
+          retention-days: 30
