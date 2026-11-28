@@ -31,7 +31,7 @@ export function startSpeechModelWarmup(store: SpeechWarmupStore): () => void {
     const runPrewarm = (): void => {
       try {
         const latestVoice = store.getSettings().voice
-        if (!latestVoice?.enabled || !modelId) {
+        if (!latestVoice?.enabled || !(pin.kind === 'none' ? latestVoice.sttModel : modelId)) {
           void findSpeechSttService()?.unloadIdleModel()
           return
         }
@@ -39,8 +39,9 @@ export function startSpeechModelWarmup(store: SpeechWarmupStore): () => void {
         stt.setIdleUnloadDelay(voiceModelUnloadDelayMs(latestVoice))
         const prewarm = (): void => {
           const current = store.getSettings().voice
-          if (current?.enabled && modelId) {
-            void stt.prewarm(modelId, current.dictationLanguage, retryFailed)
+          const currentModelId = pin.kind === 'none' ? current?.sttModel : modelId
+          if (current?.enabled && currentModelId) {
+            void stt.prewarm(currentModelId, current.dictationLanguage, retryFailed)
           }
         }
         // A loaded recognizer keeps the GPU choice it started with; reload it once no dictation uses it.
