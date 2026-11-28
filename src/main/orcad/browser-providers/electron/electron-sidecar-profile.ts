@@ -1,6 +1,6 @@
 import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, isAbsolute, join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { z } from 'zod'
 import { lazyZodSchema } from '../../../../shared/schema/lazy-zod-schema'
@@ -90,7 +90,22 @@ export async function prepareElectronSidecarProfile(
   orcadUserDataPath: string
 ): Promise<ElectronSidecarProfile> {
   await removeLeftoverElectronSidecarProfile(orcadUserDataPath)
-  const profilePath = join(orcadUserDataPath, PERSISTENT_PROFILE_DIRECTORY)
+  const configured = process.env.ORCA_BROWSER_PROFILE_DIR?.trim()
+  if (configured && !isAbsolute(configured)) {
+    throw new Error('ORCA_BROWSER_PROFILE_DIR must be an absolute path')
+  }
+  const profilePath = configured
+    ? resolve(configured)
+    : join(orcadUserDataPath, PERSISTENT_PROFILE_DIRECTORY)
+  if (configured && process.platform !== 'win32' && Buffer.byteLength(profilePath) > 80) {
+    throw new Error('ORCA_BROWSER_PROFILE_DIR must be at most 80 bytes')
+  }
+  if (configured) {
+    await mkdir(profilePath, { recursive: true, mode: 0o700 })
+    if (!isSafeOwnedDirectory(await lstat(profilePath))) {
+      throw new Error('ORCA_BROWSER_PROFILE_DIR must be owned with mode 0700, not a symlink')
+    }
+  }
   if (!(await isUsablePersistentProfile(profilePath))) {
     return { path: await createElectronSidecarProfile(orcadUserDataPath), persistent: false }
   }
