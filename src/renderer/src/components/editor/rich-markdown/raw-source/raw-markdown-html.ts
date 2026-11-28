@@ -1,3 +1,4 @@
+import { prepareRichMarkdownFootnoteDefinitions } from '../footnotes/rich-markdown-footnote-context'
 import { createDetailsMatcher, isEditableDetailsHtmlBlock } from '../details/details-markdown-html'
 import {
   formatMarkdownDocLinkBody,
@@ -48,6 +49,7 @@ export function encodeRawMarkdownHtmlForRichEditor(
   { htmlSuperscriptLinks = false }: { htmlSuperscriptLinks?: boolean } = {}
 ): string {
   const normalizedContent = normalizeMarkdownReferenceLinks(content)
+  prepareRichMarkdownFootnoteDefinitions(codec, normalizedContent)
   const matchDetails = createDetailsMatcher(normalizedContent)
   const lastCommentClose = normalizedContent.lastIndexOf('-->')
   const { transport } = codec
