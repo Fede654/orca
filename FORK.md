@@ -672,3 +672,11 @@ Después de revisar el candidato, Orky autoriza tag/build; el tag anotado es inm
 Tras revisar ambos smoke/assets del run exacto, Orky instruye promoción. Registrar release-promote bajo lease/fence/CAS, ejecutar promote-release.py primero sin --publish y luego con --publish usando las mismas identidades y lease. La CLI descarga los mismos artifacts, comprueba repoID/workflow/evento/commit/tag/run/attempt, recibos e integridad del manifiesto; crea/reconcilia un draft y publica solo después de verificar los tres assets remotos no vacíos. No reconstruye, sobrescribe assets ni considera artifacts una release.
 
 Respuesta perdida: conservar intención, inspeccionar repoID/tag/commit/run y releaseID/estado/assets; la misma CLI verifica bytes del draft o release existente y evita duplicar. Solo con evidencia final se resuelve la intención y registra complete por CLI; la transición building→complete por sí sola no prueba publicación. El registro273 y su historia permanecen intactos.
+
+### Revisión del promotor281
+
+La promoción ahora exige status completed del run aprobado y consulta los jobs de cada attempt que declaran los recibos: appimage/macos deben estar completed/success, con SHA/run/attempt correctos y paso Smoke check completed/success. Descarga cada artifact por ID, comprueba su digest ZIP y su identidad workflow_run antes de verificar los tres assets y manifiesto. Linux puede venir de un attempt anterior exitoso; no se exige igualdad de attempts por plataforma.
+
+Pasar --evidence /ruta/privada/promocion281.json al promotor. Ese archivo fija repoID, candidato/tag/run/attempt aprobado, IDs/digests de artifacts, jobIDs y attempts por plataforma; su sidecar .release.json fija releaseID. Una recuperación debe coincidir con esos datos; no se reemplazan al reintentar. La intención sigue pendiente hasta reconciliación externa comprobada.
+
+fork/promote-release.test.py ejecuta main con doble controlado de subprocess/GitHub y efectos persistentes entre invocaciones: barreras previas sin mutaciones, draft parcial sin clobber, respuestas perdidas tras create/upload/edit, bytes remotos distintos y rechazo del lease antes de publicar. Las pruebas del ledger no sustituyen estas pruebas del promotor.
