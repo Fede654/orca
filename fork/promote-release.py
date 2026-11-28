@@ -133,7 +133,13 @@ def main():
             command('gh', 'release', 'create', args.tag, '--repo', REPO, '--verify-tag',
                     '--draft', '--title', args.tag, '--notes',
                     f'Candidate {args.commit}; verified run https://github.com/{REPO}/actions/runs/{args.run}')
-        release = api(f'repos/{REPO}/releases/tags/{args.tag}')
+            releases = pages(f'repos/{REPO}/releases?per_page=100')
+            matches = [r for page in releases for r in page if r['tag_name'] == args.tag]
+        if len(matches) != 1:
+            raise ValueError('release creation not reconciled; retain pending intent')
+        release = api(f'repos/{REPO}/releases/{matches[0]["id"]}')
+        if release['tag_name'] != args.tag:
+            raise ValueError('release ID no longer names the approved tag')
         save_evidence(args.evidence.with_suffix('.release.json'),
                       dict(repoId=repo['id'], tag=args.tag, commit=args.commit, releaseId=release['id']))
         names = {a['name'] for a in release['assets']}

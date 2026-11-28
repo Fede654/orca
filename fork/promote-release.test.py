@@ -102,6 +102,8 @@ class GitHubWorld:
                 result = [{'jobs': self.jobs[int(path.split('/attempts/')[1].split('/')[0])]}]
             elif '/releases?' in path:
                 result = [[self.release_data()] if self.release else []]
+            elif '/releases/tags/' in path and self.release['draft']:
+                raise subprocess.CalledProcessError(1, args, 'drafts return 404 by tag')
             elif '/releases/' in path:
                 result = self.release_data()
             else:
