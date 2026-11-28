@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { forkAwareAppVersion } from '../../../shared/fork-build'
 import {
   fetchLatestStableReleaseTag,
   fetchNewerReleaseTagsWithReadiness
@@ -118,7 +119,7 @@ export abstract class UpdaterReleaseFeed extends UpdaterInstallExecution {
   ): Promise<'ready' | 'not-available'> {
     const attemptId = this.activeUpdateCheckAttemptId
     // Pin the concrete tag because latest/download can move between check and download; stable checks exclude prereleases.
-    const currentVersion = app.getVersion()
+    const currentVersion = forkAwareAppVersion(app.getVersion())
     const team = this.getTeamUpdatePolicy?.()
     const { isPerfCheck, includePrerelease, delayDays, minimumVersion } = releaseSelectionPolicy({
       team,

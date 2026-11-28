@@ -1,5 +1,7 @@
 import { net } from 'electron'
+import { meetsReleaseMinimumVersion } from './updater-release-policy'
 import { compareVersions, isPrereleaseVersion, isValidVersion } from './updater-fallback'
+import { FORK_BUILD, getAppReleaseRepo, isForkReleaseVersion } from '../../../shared/fork-build'
 import {
   FETCH_TIMEOUT_MS,
   getPlatformManifestReadiness,
@@ -15,7 +17,10 @@ import {
 import { listMainRepoReleaseBuildsUntil } from './updater-release-builds'
 import type { ReleaseBuild } from '../../../shared/updater/release-channel'
 
-const ATOM_FEED_URL = 'https://github.com/stablyai/orca/releases.atom'
+// Fork: the repo is the fork's in fork builds (shared/fork-build.ts), upstream's otherwise.
+const RELEASE_REPO = getAppReleaseRepo()
+const ATOM_FEED_URL = `https://github.com/${RELEASE_REPO}/releases.atom`
+const RELEASE_REPO_PATTERN = RELEASE_REPO.replace(/[.]/g, '\\.')
 const MAX_MANIFEST_PROBE_CANDIDATES = 6
 // Releases past the feed don't change and newer ones come from Atom, so a list that settled the delay stays accurate.
 const OLDER_RELEASES_TTL_MS = 6 * 60 * 60 * 1000
@@ -27,7 +32,9 @@ let olderReleasesCache: {
 
 // Atom includes stable and prerelease tags without channel filtering.
 const ENTRY_RE = /<entry>([\s\S]*?)<\/entry>/g
-const TAG_HREF_RE = /href="https:\/\/github\.com\/stablyai\/orca\/releases\/tag\/([^"]+)"/
+const TAG_HREF_RE = new RegExp(
+  `href="https://github\\.com/${RELEASE_REPO_PATTERN}/releases/tag/([^"]+)"`
+)
 const ENTRY_UPDATED_RE = /<updated>([^<]+)<\/updated>/
 
 export function normalizeTagToVersion(tag: string): string {
@@ -63,7 +70,8 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
         continue
       }
       const version = normalizeTagToVersion(tag)
-      if (isValidVersion(version)) {
+      // Fork: the fork's feed also lists upstream tags pushed to it; only its releases count.
+      if (isValidVersion(version) && (!FORK_BUILD || isForkReleaseVersion(version))) {
         const releasedAt = Date.parse(entry[1].match(ENTRY_UPDATED_RE)?.[1] ?? '')
         tags.push({ tag, version, releasedAt: Number.isNaN(releasedAt) ? null : releasedAt })
       }
@@ -79,19 +87,25 @@ async function fetchReleaseFeedTags(): Promise<ReleaseFeedTag[] | null> {
 export async function fetchLatestStableReleaseTag(): Promise<string | null> {
   try {
     // Resolve only the release-page redirect; installer redirects continue on to signed storage URLs.
-    const latestUrl = 'https://github.com/stablyai/orca/releases/latest'
+    const latestUrl = `https://github.com/${RELEASE_REPO}/releases/latest`
     const response = await requestReleaseHead(latestUrl)
     if (!response?.redirectUrl || response.statusCode < 300 || response.statusCode >= 400) {
       return null
     }
     const target = new URL(response.redirectUrl, latestUrl)
-    const match = target.pathname.match(/^\/stablyai\/orca\/releases\/tag\/([^/]+)$/)
+    const match = target.pathname.match(
+      new RegExp(`^/${RELEASE_REPO_PATTERN}/releases/tag/([^/]+)$`)
+    )
     if (target.origin !== 'https://github.com' || !match) {
       return null
     }
     const tag = decodeURIComponent(match[1])
     const version = normalizeTagToVersion(tag)
-    if (!isValidVersion(version) || isPrereleaseVersion(version)) {
+    // Fork: fork tags (X.Y.Z-hub.N) are the fork's stable releases.
+    if (
+      !isValidVersion(version) ||
+      (isPrereleaseVersion(version) && !isForkReleaseVersion(version))
+    ) {
       return null
     }
     return (await getPlatformManifestReadiness(tag)) === 'ready' ? tag : null
@@ -153,7 +167,7 @@ export async function fetchNewerReleaseTagsWithReadiness(
   const candidates = (list: ReleaseFeedTag[]): ReleaseFeedTag[] => {
     const channel = selectChannelCandidates(list, includePrerelease, options.releaseFilter)
     return minimum
-      ? channel.filter(({ version }) => compareVersions(version, minimum) >= 0)
+      ? channel.filter(({ version }) => meetsReleaseMinimumVersion(version, minimum))
       : channel
   }
   const channelCandidates = candidates(tags)
@@ -217,7 +231,7 @@ function selectChannelCandidates(
   }
   return includePrerelease
     ? tags.filter(({ tag }) => !isPerfPrereleaseTag(tag))
-    : tags.filter(({ version }) => !isPrereleaseVersion(version))
+    : tags.filter(({ version }) => !isPrereleaseVersion(version) || isForkReleaseVersion(version))
 }
 
 async function fetchOlderReleaseTags(
