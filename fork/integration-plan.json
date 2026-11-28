@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "base": "v1.4.281",
   "baseCommit": "6d1c1d05c733b7ba27685e586c5b0e9927803654",
-  "historicalTarget": "20b0236402fbe0b25183aa2f28467a188dc1f421",
-  "seriesSha256": "77594e0eb6d0a2bd8a083c53300916c13e0b25d89cee71a1f1567ad80791b2a8",
+  "historicalTarget": "654004726d54e97b2d186274113c4e39b9478ff5",
+  "seriesSha256": "8c902daf6363138d9a0226daa9ca272e49f4ba413f9b9757b83cc380fa9cff96",
   "topics": [
     {
-      "selector": "fork/tooling@adapt/tooling-v1.4.281-r1",
+      "selector": "fork/tooling@adapt/tooling-v1.4.281-r2",
       "refs": {
         "fork/tooling": "702abdbc4f92b483233976dc4b116795e4074641",
-        "adapt/tooling-v1.4.281-r1": "2d619e2f17849b4af4f3f4bd50f30b4b4a3888eb"
+        "adapt/tooling-v1.4.281-r2": "f6458224f12183606aea5621c28e2decb7a6b6ee"
       }
     },
     {
