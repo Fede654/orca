@@ -4,12 +4,17 @@ import { DictationIndicator } from './DictationIndicator'
 import { publishDictationMeter, resetDictationMeter } from './dictation-meter-store'
 import type { DictationFailureKind } from './dictation-toasts'
 import type { SpeechModelUpdateTarget } from './speech-model-update-target'
-import type { SpeechModelManifest, SpeechModelState } from '../../../../shared/speech/speech-types'
+import type {
+  SpeechModelManifest,
+  SpeechModelState,
+  SpeechSegmentProgressEvent
+} from '../../../../shared/speech/speech-types'
 import type { DictationQueuedSendKind } from './use-dictation-queued-send'
 import type { DictationCleanupNotice } from './use-dictation-cleanup'
 
 function PaneWithPill({
   captureLive = true,
+  sessionId = null,
   failure = null,
   queued = null,
   setup = null,
@@ -17,6 +22,7 @@ function PaneWithPill({
   notice = null
 }: {
   captureLive?: boolean
+  sessionId?: string | null
   failure?: DictationFailureKind | null
   queued?: DictationQueuedSendKind | null
   setup?: SpeechModelUpdateTarget | null
@@ -32,6 +38,7 @@ function PaneWithPill({
     <div ref={setPane} className="relative h-28 w-full bg-background">
       {anchor ? (
         <DictationIndicator
+          sessionId={sessionId}
           captureLive={captureLive}
           anchor={anchor}
           failure={failure}
@@ -54,6 +61,109 @@ export const listening = defineFixture({
   store: { dictationState: 'listening' },
   setup: () => publishDictationMeter({ level: 0.5, isSpeaking: true, isClipping: false }),
   render: () => <PaneWithPill />
+})
+
+let emitSegmentProgress: ((event: SpeechSegmentProgressEvent) => void) | null = null
+let restoreSegmentProgress: (() => void) | null = null
+
+function setupSegmentProgress(): void {
+  const original = window.api.speech.onSegmentProgress
+  window.api.speech.onSegmentProgress = (callback) => {
+    emitSegmentProgress = callback
+    return () => {
+      emitSegmentProgress = null
+    }
+  }
+  restoreSegmentProgress = () => {
+    window.api.speech.onSegmentProgress = original
+  }
+}
+
+async function showSegmentProgress(silenceMs: number, segmentMs: number): Promise<void> {
+  emitSegmentProgress?.({
+    sessionId: 'fixture',
+    silenceMs,
+    pauseMs: 1_600,
+    segmentMs,
+    maxMs: 30_000,
+    limitWarningMs: 3_000
+  })
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  restoreSegmentProgress?.()
+}
+
+export const remoteProgressSequence = defineFixture({
+  width: 520,
+  store: { dictationState: 'listening' },
+  setup: setupSegmentProgress,
+  render: () => <PaneWithPill sessionId="fixture" />,
+  interact: async (frame) => {
+    const button = frame.querySelector<HTMLButtonElement>('[data-size="icon-xs-round"]')
+    if (!button) {
+      throw new Error('Missing finish button')
+    }
+    const checkCue = (colored: boolean, label: string, blinking = false) => {
+      if (
+        Boolean(button.style.backgroundColor) !== colored ||
+        !button.getAttribute('aria-label')?.includes(label) ||
+        button.getAnimations().some((animation) => !(animation instanceof CSSTransition)) !==
+          blinking
+      ) {
+        throw new Error(`Unexpected finish button cue at ${label}`)
+      }
+    }
+    const progress = async (
+      silenceMs: number,
+      segmentMs: number,
+      cutReason?: 'pause' | 'limit'
+    ) => {
+      emitSegmentProgress?.({
+        sessionId: 'fixture',
+        silenceMs,
+        pauseMs: 1_600,
+        segmentMs,
+        maxMs: 30_000,
+        limitWarningMs: 3_000,
+        cutReason
+      })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    await progress(0, 4_000)
+    checkCue(false, 'Finish')
+    await progress(600, 6_000)
+    checkCue(true, 'Pause cut approaching')
+    await progress(0, 6_040)
+    checkCue(false, 'Finish')
+    await progress(0, 28_500)
+    checkCue(true, 'Forced cut approaching')
+    await progress(40, 28_540)
+    checkCue(true, 'Forced cut approaching')
+    await progress(0, 0, 'pause')
+    checkCue(false, 'Finish', true)
+    await new Promise((resolve) => setTimeout(resolve, 550))
+    checkCue(false, 'Finish')
+    await progress(0, 0, 'limit')
+    checkCue(false, 'Finish', true)
+    await new Promise((resolve) => setTimeout(resolve, 550))
+    checkCue(false, 'Finish')
+    restoreSegmentProgress?.()
+  }
+})
+
+export const remotePauseProgress = defineFixture({
+  width: 520,
+  store: { dictationState: 'listening' },
+  setup: setupSegmentProgress,
+  render: () => <PaneWithPill sessionId="fixture" />,
+  interact: () => showSegmentProgress(600, 6_000)
+})
+
+export const remoteMaxProgress = defineFixture({
+  width: 520,
+  store: { dictationState: 'listening' },
+  setup: setupSegmentProgress,
+  render: () => <PaneWithPill sessionId="fixture" />,
+  interact: () => showSegmentProgress(0, 28_500)
 })
 
 export const startingBeforeMic = defineFixture({
