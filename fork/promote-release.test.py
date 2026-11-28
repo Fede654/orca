@@ -155,7 +155,7 @@ class PromotionTests(unittest.TestCase):
             promoter.main()
 
     def test_rejects_incomplete_run_platform_smoke_or_archive_before_mutation(self):
-        for failure in ['run-status', 'run-failure', 'run-sha', 'job-status', 'job-failure', 'smoke', 'missing-macos', 'manifest']:
+        for failure in ['run-status', 'run-failure', 'run-sha', 'job-status', 'job-failure', 'smoke', 'missing-macos', 'asset', 'manifest']:
             with self.subTest(failure=failure):
                 self.world = GitHubWorld()
                 if failure == 'run-status':
@@ -173,8 +173,12 @@ class PromotionTests(unittest.TestCase):
                 elif failure == 'missing-macos':
                     self.world.artifacts.pop()
                 else:
-                    self.world.archive(101, {'orca-linux.AppImage': b'appimage'})
-                    self.world.artifacts[0]['digest'] = 'sha256:' + hashlib.sha256(self.world.archives[101]).hexdigest()
+                    identity = 101 if failure == 'manifest' else 102
+                    omitted = 'latest-linux.yml' if failure == 'manifest' else 'orca-macos-arm64.dmg'
+                    with zipfile.ZipFile(io.BytesIO(self.world.archives[identity])) as archive:
+                        contents = {name: archive.read(name) for name in archive.namelist() if name != omitted}
+                    self.world.archive(identity, contents)
+                    self.world.artifacts[identity - 101]['digest'] = 'sha256:' + hashlib.sha256(self.world.archives[identity]).hexdigest()
                 with self.assertRaises(ValueError):
                     self.promote()
                 self.assertEqual(self.world.mutations, [])
@@ -216,6 +220,17 @@ class PromotionTests(unittest.TestCase):
             self.promote()
         self.assertEqual(self.world.mutations, [])
         self.assertTrue(self.world.release['draft'])
+        self.assertEqual(self.world.row['intent_id'], 'promote-99')
+
+    def test_recovery_cannot_substitute_another_artifact_id(self):
+        self.world.lost = 'create'
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.promote()
+        self.world.artifacts[0]['id'] = 103
+        self.world.archives[103] = self.world.archives[101]
+        with self.assertRaisesRegex(ValueError, 'evidence changed'):
+            self.promote()
+        self.assertEqual(self.world.mutations, [('create', 301)])
         self.assertEqual(self.world.row['intent_id'], 'promote-99')
 
     def test_expired_lease_or_stale_fence_at_publication_blocks_edit(self):
