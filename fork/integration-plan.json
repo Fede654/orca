@@ -2,49 +2,49 @@
   "schemaVersion": 1,
   "base": "v1.4.281",
   "baseCommit": "6d1c1d05c733b7ba27685e586c5b0e9927803654",
-  "historicalTarget": "7b27a5a0af1bdeaa38116baf54d9786de13b4dfb",
+  "historicalTarget": "5b8fb180a8e9b59a7d394a4b78656dcc26f9b8b1",
   "seriesSha256": "926bd06a3a9f8f26a0a7aa06d125d8323fedeaf5a2a1444e142dd94b80b7ecde",
   "topics": [
     {
       "selector": "fork/tooling@adapt/tooling-v1.4.281",
       "refs": {
         "fork/tooling": "702abdbc4f92b483233976dc4b116795e4074641",
-        "adapt/tooling-v1.4.281": "b476db29f1cc561821494af1e685719bc96d7e40"
+        "adapt/tooling-v1.4.281": "998882df5f2ea3577bb1127c58af028f2c3448a3"
       }
     },
     {
       "selector": "fork/partial-orcad-template@adapt/partial-orcad-template-v1.4.281",
       "refs": {
         "fork/partial-orcad-template": "cf227697988a6ec0d81e4e1018afb2dadcdc294a",
-        "adapt/partial-orcad-template-v1.4.281": "6f53e2f6288c8064652fd07b6b253d2f8e88c5f0"
+        "adapt/partial-orcad-template-v1.4.281": "bd7ed900ce3d51a9742316b05fb6adee4e3e8bdb"
       }
     },
     {
       "selector": "feat/persistent-browser-profile@adapt/persistent-browser-profile-v1.4.281",
       "refs": {
         "feat/persistent-browser-profile": "2b653e987d2a06249377e4490547a6e446e79cf7",
-        "adapt/persistent-browser-profile-v1.4.281": "79e8ca9ded304814af37fdb52d63c21a71b768d8"
+        "adapt/persistent-browser-profile-v1.4.281": "1b8e4cebe31aa34a466f898b4023aaec46b26c09"
       }
     },
     {
       "selector": "feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.281",
       "refs": {
         "feat/stt-remote-endpoint": "b2f66fbbaa40bac1d4ac43caaf5820d31230f381",
-        "adapt/stt-remote-endpoint-v1.4.281": "e0e3b0de84764901afdc930a79486eeae2c74d0c"
+        "adapt/stt-remote-endpoint-v1.4.281": "e3addd79c1a61af60a511af411803cd32a934440"
       }
     },
     {
       "selector": "fix/markdown-footnotes@adapt/markdown-footnotes-v1.4.281",
       "refs": {
         "fix/markdown-footnotes": "44f9411e2a6c1ebe134c400362d8133b31fde7c3",
-        "adapt/markdown-footnotes-v1.4.281": "d1aa25b76fa260635cdd773bc4832ffec11d73fa"
+        "adapt/markdown-footnotes-v1.4.281": "bd654a5fd69cd60006697870d58abba2027d0187"
       }
     },
     {
       "selector": "fork/release-identity@adapt/release-identity-v1.4.281",
       "refs": {
         "fork/release-identity": "96d4bcacd6f68228001bbb4440889c6124fda8af",
-        "adapt/release-identity-v1.4.281": "f73e71bba92cf769fe77828080ed71cdd628d06f"
+        "adapt/release-identity-v1.4.281": "442bea9fb27533947401e71ce6e98baf3b8d07b2"
       }
     }
   ],
@@ -79,7 +79,7 @@
     "src/main/speech/remote-stt-segmenter.ts": "56f9c42b88745f40408d05a9de346ba031d4200c8d476b8b29abf00485268056",
     "src/main/speech/speech-model-pin.test.ts": "eff4f8fcc7f8652913fec9480c0bf7ce29a3a7364f00bd00b88da808fac5c2fe",
     "src/main/speech/speech-model-pin.ts": "5c2c3e671d53bfa473e02dfc4cdda26be5f937541219e6f1bfa33314a5aaf87e",
-    "src/main/speech/speech-model-warmup.ts": "62d1f51df76ba615bd0b66d4dc7e89dd281739fbd2933e4cdcd850002614fd44",
+    "src/main/speech/speech-model-warmup.ts": "3ed4ffb53fa7627f413a9fa7a4c20a615b31f782c00834e72610684145a641f0",
     "src/main/speech/stt-service.ts": "9c7959e819b340e43d0a1f394dbefe86402ec5b45f9f028a34c5fc5229e671a0",
     "src/main/speech/stt-session-start.ts": "6d3c7607e404eb885abc04449c644f4885dd7a14edc5027d331c75bdb6fd4720",
     "src/main/startup/gpu-recovery/gpu-lifecycle.ts": "5109458f2463d0fea282e26003ab4d9efe6ec0908d52dc0b65831a5ea6c990c3",
