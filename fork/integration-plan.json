@@ -2,49 +2,49 @@
   "schemaVersion": 1,
   "base": "v1.4.281",
   "baseCommit": "6d1c1d05c733b7ba27685e586c5b0e9927803654",
-  "historicalTarget": "d70fd86fb2265e75b4ab5e114e259041f344ba28",
+  "historicalTarget": "7b27a5a0af1bdeaa38116baf54d9786de13b4dfb",
   "seriesSha256": "926bd06a3a9f8f26a0a7aa06d125d8323fedeaf5a2a1444e142dd94b80b7ecde",
   "topics": [
     {
       "selector": "fork/tooling@adapt/tooling-v1.4.281",
       "refs": {
         "fork/tooling": "702abdbc4f92b483233976dc4b116795e4074641",
-        "adapt/tooling-v1.4.281": "dc34c1c504ecbf43fd295ee39770efb6cf110b43"
+        "adapt/tooling-v1.4.281": "b476db29f1cc561821494af1e685719bc96d7e40"
       }
     },
     {
       "selector": "fork/partial-orcad-template@adapt/partial-orcad-template-v1.4.281",
       "refs": {
         "fork/partial-orcad-template": "cf227697988a6ec0d81e4e1018afb2dadcdc294a",
-        "adapt/partial-orcad-template-v1.4.281": "687b50c346b4de1fdc382f33160cb23c54ddc0c1"
+        "adapt/partial-orcad-template-v1.4.281": "6f53e2f6288c8064652fd07b6b253d2f8e88c5f0"
       }
     },
     {
       "selector": "feat/persistent-browser-profile@adapt/persistent-browser-profile-v1.4.281",
       "refs": {
         "feat/persistent-browser-profile": "2b653e987d2a06249377e4490547a6e446e79cf7",
-        "adapt/persistent-browser-profile-v1.4.281": "22fabb269027ef0d3a0765340121931cabd58dc2"
+        "adapt/persistent-browser-profile-v1.4.281": "79e8ca9ded304814af37fdb52d63c21a71b768d8"
       }
     },
     {
       "selector": "feat/stt-remote-endpoint@adapt/stt-remote-endpoint-v1.4.281",
       "refs": {
         "feat/stt-remote-endpoint": "b2f66fbbaa40bac1d4ac43caaf5820d31230f381",
-        "adapt/stt-remote-endpoint-v1.4.281": "a1e1e5f94ffc4a0309a87c209e00063123fd0f8c"
+        "adapt/stt-remote-endpoint-v1.4.281": "e0e3b0de84764901afdc930a79486eeae2c74d0c"
       }
     },
     {
       "selector": "fix/markdown-footnotes@adapt/markdown-footnotes-v1.4.281",
       "refs": {
         "fix/markdown-footnotes": "44f9411e2a6c1ebe134c400362d8133b31fde7c3",
-        "adapt/markdown-footnotes-v1.4.281": "5375c49e538ca75c3705ad3fe0a9e54465400ef1"
+        "adapt/markdown-footnotes-v1.4.281": "d1aa25b76fa260635cdd773bc4832ffec11d73fa"
       }
     },
     {
       "selector": "fork/release-identity@adapt/release-identity-v1.4.281",
       "refs": {
         "fork/release-identity": "96d4bcacd6f68228001bbb4440889c6124fda8af",
-        "adapt/release-identity-v1.4.281": "96f4a53ded641643f51a8c0c708ca6434fb95209"
+        "adapt/release-identity-v1.4.281": "f73e71bba92cf769fe77828080ed71cdd628d06f"
       }
     }
   ],
