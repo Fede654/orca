@@ -1,8 +1,4 @@
-# Único workflow del fork (FORK.md §7): construye el AppImage x64 de un tag vX.Y.Z-hub.N y lo
-# publica como release de Fede654/orca con el asset orca-linux.AppImage (mismo nombre que
-# upstream; GitHub publica su sha256 y orca-ctl lo verifica) y latest-linux.yml, el manifiesto
-# del updater del escritorio; después suma orca-macos-arm64.dmg (escritorio sin firma de Apple).
-# A mano: construye un ref sin publicar y deja todo como artifact.
+# Builds stage smoke-checked artifacts only; fork/promote-release.py publishes after review.
 name: Hub release
 
 on:
@@ -20,7 +16,7 @@ on:
         default: ''
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: hub-release-${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
@@ -31,6 +27,8 @@ jobs:
     if: github.repository == 'Fede654/orca'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    outputs:
+      candidate: ${{ steps.candidate.outputs.sha }}
     env:
       ORCA_BACKGROUND_LAUNCH: '1'
       ORCA_CI_MAIN_SOURCEMAPS: '0'
@@ -43,6 +41,10 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
           persist-credentials: false
+
+      - name: Pin candidate
+        id: candidate
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # Mismas acciones compuestas que el job "package" de upstream (pr.yml).
       - uses: ./.github/actions/install-node-dependencies
@@ -92,7 +94,7 @@ jobs:
           path: out/orcad-template
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
 
       - name: Package AppImage
         env:
@@ -161,45 +163,25 @@ jobs:
             || { echo "el template no declara linux-x64-glibc"; exit 1; }
           sha256sum "$app" | tee "$GITHUB_WORKSPACE/dist/orca-linux.AppImage.sha256"
 
-      - name: Keep the AppImage (manual runs)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Record Linux candidate after smoke
+        run: python3 fork/staged-assets.py record --root dist --platform linux --commit "$(git rev-parse HEAD)" --tag "${FORK_VERSION:+v$FORK_VERSION}" --run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
+
+      - name: Keep the smoke-checked AppImage
         uses: actions/upload-artifact@v7
         with:
-          name: orca-linux-AppImage
+          name: staged-linux
           path: |
             dist/orca-linux.AppImage
             dist/orca-linux.AppImage.sha256
             dist/latest-linux.yml
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Publish release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          git fetch --depth=1 "https://github.com/${GITHUB_REPOSITORY}.git" "+refs/tags/${TAG}:refs/tags/${TAG}"
-          {
-            echo "Build de hub del fork: $(git for-each-ref "refs/tags/${TAG}" --format='%(contents:subject)')"
-            echo
-            echo '```'
-            git for-each-ref "refs/tags/${TAG}" --format='%(contents:body)'
-            echo '```'
-            echo
-            echo "Doctrina: FORK.md. Instalar en un hub: ORCA_REPO=${GITHUB_REPOSITORY} orca-ctl update ${TAG#v}"
-          } > "$RUNNER_TEMP/notes.md"
-          assets=(dist/orca-linux.AppImage)
-          # Con el tema fork/release-identity la build va sellada y lleva el manifiesto del updater.
-          if [ -n "${FORK_VERSION:-}" ]; then assets+=(dist/latest-linux.yml); fi
-          gh release create "$TAG" "${assets[@]}" \
-            --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" --latest
+            dist/linux.json
+          if-no-files-found: error
+          retention-days: 30
 
   # Escritorio para macOS (arm64) que se conecta a los hubs. Sin certificado de Apple: va
   # firmado ad-hoc, Gatekeeper pide abrirlo con clic derecho > Abrir la primera vez y el
   # updater no puede instalar (Squirrel.Mac exige firma): se actualiza bajando el dmg.
-  # Corre después del AppImage para que una falla acá no frene la release de los hubs.
+  # Reutiliza Linux exitoso; una falla macOS deja todo en staging.
   macos:
     needs: appimage
     if: github.repository == 'Fede654/orca'
@@ -214,7 +196,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          ref: ${{ needs.appimage.outputs.candidate }}
           persist-credentials: false
 
       - uses: ./.github/actions/install-node-dependencies
@@ -266,21 +248,16 @@ jobs:
           fi
           shasum -a 256 "$dmg" | tee "$dmg.sha256"
 
-      - name: Keep the dmg (manual runs)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Record macOS candidate after smoke
+        run: python3 fork/staged-assets.py record --root dist --platform macos --commit "$(git rev-parse HEAD)" --tag "${FORK_VERSION:+v$FORK_VERSION}" --run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
+
+      - name: Keep the smoke-checked dmg
         uses: actions/upload-artifact@v7
         with:
-          name: orca-macos-arm64
+          name: staged-macos
           path: |
             dist/orca-macos-arm64.dmg
             dist/orca-macos-arm64.dmg.sha256
-          if-no-files-found: warn
-          retention-days: 7
-
-      # La release la crea el job appimage; acá solo se suma el dmg.
-      - name: Add the dmg to the release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: gh release upload "$TAG" dist/orca-macos-arm64.dmg --repo "$GITHUB_REPOSITORY"
+            dist/macos.json
+          if-no-files-found: error
+          retention-days: 30

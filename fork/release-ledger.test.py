@@ -46,6 +46,24 @@ class ReleaseLedgerTests(unittest.TestCase):
         self.assertEqual(sorted(result['ok'] for result in results), [False, True])
         self.assertIn('already claimed', next(result['error'] for result in results if not result['ok']))
 
+    def test_promotion_intent_survives_restart_without_claiming_linux_publication(self):
+        credentials = self.claim()
+        self.transition(credentials, 'preparing')
+        self.transition(credentials, 'review-required')
+        self.transition(credentials, 'tagged', integration_commit='c' * 40, fork_tag='v1.4.266-hub.1')
+        self.transition(credentials, 'building', run_id='99', attempt=1,
+                        intent_id='promote-99', intent_kind='release-promote')
+        self.ledger.close()
+        self.ledger = Ledger(self.path, lambda: self.now)
+        row = self.ledger.get('stablyai/orca', '42')
+        self.assertEqual((row['state'], row['intent_id'], row['linux_published']),
+                         ('building', 'promote-99', 0))
+        with self.assertRaisesRegex(LedgerError, 'pending intent'):
+            self.transition(credentials, 'complete')
+        self.transition(credentials, 'failed')
+        with self.assertRaisesRegex(LedgerError, 'pending intent'):
+            self.corrected_candidate(credentials)
+
     def test_expiry_fences_old_owner_even_after_owner_name_is_reused(self):
         old = self.claim()
         self.now = 1301

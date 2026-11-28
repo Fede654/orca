@@ -62,10 +62,10 @@ export function registerSpeechHandlers(
     }
   })
 
-  ipc.handle("speech:getCatalog", () => SPEECH_MODEL_CATALOG)
-  ipc.handle("speech:getModelStates", () => getSpeechModelManager(store).getModelStates())
+  ipc.handle('speech:getCatalog', () => SPEECH_MODEL_CATALOG)
+  ipc.handle('speech:getModelStates', () => getSpeechModelManager(store).getModelStates())
   registerSpeechProviderHandlers(ipc)
-  ipc.handle("speech:downloadModel", async (event, modelId: string) => {
+  ipc.handle('speech:downloadModel', async (event, modelId: string) => {
     const manager = getSpeechModelManager(store)
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window) {

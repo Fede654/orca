@@ -22,7 +22,8 @@ export function startSpeechModelWarmup(store: SpeechWarmupStore): () => void {
   const sync = (retryFailed: boolean): void => {
     const voice = store.getSettings().voice
     const pin = pinnedSpeechModelId()
-    const modelId = pin.kind === 'invalid' ? undefined : pin.kind === 'pinned' ? pin.id : voice?.sttModel
+    const modelId =
+      pin.kind === 'invalid' ? undefined : pin.kind === 'pinned' ? pin.id : voice?.sttModel
     if (!voice?.enabled || !modelId) {
       void findSpeechSttService()?.unloadIdleModel()
       return

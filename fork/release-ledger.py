@@ -163,7 +163,7 @@ class Ledger:
                     raise LedgerError('pending intent ID mismatch')
                 row['intent_id'] = row['intent_kind'] = None
             if intent_id is not None or intent_kind is not None:
-                if not intent_id or intent_kind not in {'tag-push', 'build-start', 'macos-retry'} or row['intent_id'] is not None:
+                if not intent_id or intent_kind not in {'tag-push', 'build-start', 'macos-retry', 'release-promote'} or row['intent_id'] is not None:
                     raise LedgerError('invalid intent or unresolved intent already exists')
                 row['intent_id'], row['intent_kind'] = intent_id, intent_kind
             if state == 'complete' and row['intent_id'] is not None:

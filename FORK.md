@@ -622,3 +622,53 @@ La corrección del gate no restaura workflows ajenos ni activa uno nuevo. El
 refresco de hashes del plan268 cubre estas extracciones/async y archivos nuevos,
 no una pérdida de funcionalidad; snapshots266 y primeras adaptaciones268 se
 conservan sin reescribirlas. Se preparan revisiones r1 de los temas afectados.
+
+## Preparación revisada v1.4.273 (2026-11-24)
+
+Base fijada: `v1.4.273`, commit `7027c7ecce594d2295c47e9afc9004b1eb6c83bb`.
+La serie ahora tiene seis adaptaciones nuevas basadas directamente en ese tag;
+las adaptaciones268 y tags publicados se conservan. El picker #45594
+(`c664321280ab21890371eddec200dc8356204e63`) ya es ancestro del tag y conserva
+readiness sin setup, tipos y partición estable: se retira completo, sin parche
+residual ni restauración de sus tests podados upstream. Los fixes nativos de
+#45118 siguen absorbidos y fuera de la serie.
+
+Se conservan perfil configurable con validación explícita de ruta, STT remoto
+segmentado Ogg Opus con modelo fijado, footnotes con round-trip, plantilla
+parcial, identidad/updater y tooling/ledger. La configuración de persistencia
+complementa la recuperación upstream, no la reemplaza. Package/lock incorporan
+solo libopus-wasm sobre las versiones273; su bundling convive con semver nuevo
+de upstream. El baseline elimina únicamente la referencia al workflow retirado;
+no recupera entradas obsoletas ni aumenta ratchets. El runner manual consume
+el UNIT_EXCLUDE273 (cross-version-wire) y sigue exigiendo CI aislada.
+
+La identidad usa el tag del fork dentro de la nueva selección de releases de
+equipos, conservando minimumVersion, forceUpdates y delays/canales. Hub.N se
+considera estable; la búsqueda paginada de releases antiguas y los targets
+stable/rc usan el repo del fork, filtrando tags upstream. Un mínimo upstream
+X.Y.Z se satisface con X.Y.Z-hub.N; un mínimo hub.N conserva su revisión exacta.
+Las actualizaciones forzadas comparan contra la revisión instalada, sin perder
+hub.N+1 por comparar solo app.getVersion(). Los canales dedicados siguen su
+política upstream. Se conserva un fixture de red requerido por los tests del
+fork, sin restaurar la suite de updater eliminada en273.
+
+El integrador imprime SHA y árbol del candidato también en dry-run, antes de
+limpiarlo. La preparación revisada aporta su metadata en un commit separado;
+el candidato de release debe regenerarse desde refs remotas fijadas y comparar
+el árbol completo con esta preparación. Un marcador de ancestry usado solo
+para presentar el PR no forma parte de la serie ni del historial de release.
+No se publica ni mueve feat/integration hasta revisar el candidato.
+
+## Preparación281: staging y promoción revisada
+
+Base: v1.4.281, commit 6d1c1d05c733b7ba27685e586c5b0e9927803654, release upstream461391347. El repo del fork mantiene ID1432470272. El workflow409894392 fue observado disabled_manually; esta preparación no lo habilita.
+
+Los seis temas siguen seleccionados: tooling, plantilla parcial, perfil validado, STT remoto Ogg Opus/model pin, round-trip footnotes e identidad/updater. Picker45594 y nativos45118 siguen absorbidos. Se conservan ramas y snapshots273. STT usa el registrar IPC lazy281 y conserva inicialización async del warmup upstream; el updater conserva requestReleaseHead281 y selecciona exclusivamente el repo del sello.
+
+Hub release conserva artifacts staged-linux/staged-macos durante30 días, con recibos de SHA/commit/tag/run/attempt y smoke, sin permisos de escritura de releases. macOS reutiliza el template y el SHA Linux. Una falla de plataforma impide promoción. workflow_dispatch sigue siendo validación sin publicación y el promotor rechaza ese evento.
+
+Después de revisar el candidato, Orky autoriza tag/build; el tag anotado es inmutable y el push usa lease. Se registra intención antes del efecto en /home/fede/.cache/orca-fork-273/releases.sqlite mediante release-ledger.py. El estado permanece building durante staging/retries, sin declarar linux-published/macos-pending. Ante falta de capacidad macOS se reintenta solamente el job fallido del mismo run y se conserva Linux.
+
+Tras revisar ambos smoke/assets del run exacto, Orky instruye promoción. Registrar release-promote bajo lease/fence/CAS, ejecutar promote-release.py primero sin --publish y luego con --publish usando las mismas identidades y lease. La CLI descarga los mismos artifacts, comprueba repoID/workflow/evento/commit/tag/run/attempt, recibos e integridad del manifiesto; crea/reconcilia un draft y publica solo después de verificar los tres assets remotos no vacíos. No reconstruye, sobrescribe assets ni considera artifacts una release.
+
+Respuesta perdida: conservar intención, inspeccionar repoID/tag/commit/run y releaseID/estado/assets; la misma CLI verifica bytes del draft o release existente y evita duplicar. Solo con evidencia final se resuelve la intención y registra complete por CLI; la transición building→complete por sí sola no prueba publicación. El registro273 y su historia permanecen intactos.
