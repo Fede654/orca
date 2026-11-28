@@ -28,6 +28,17 @@ class StagedAssetsTests(unittest.TestCase):
                              {'orca-linux.AppImage', 'latest-linux.yml', 'orca-macos-arm64.dmg'})
             with self.assertRaisesRegex(ValueError, 'mismatch'):
                 module.verify(root, 'b' * 40, 'v1.4.281-hub.1', '99')
+            macos['smoke'] = False
+            (root / 'macos.json').write_text(json.dumps(macos))
+            with self.assertRaisesRegex(ValueError, 'mismatch'):
+                module.verify(root, 'a' * 40, 'v1.4.281-hub.1', '99')
+            macos['smoke'] = True
+            (root / 'macos.json').write_text(json.dumps(macos))
+            (root / 'latest-linux.yml').write_text('version: 1.4.281-hub.1\npath: other.AppImage\n')
+            linux = module.receipt(root, 'linux', 'a' * 40, 'v1.4.281-hub.1', '99', 1)
+            (root / 'linux.json').write_text(json.dumps(linux))
+            with self.assertRaisesRegex(ValueError, 'manifest'):
+                module.verify(root, 'a' * 40, 'v1.4.281-hub.1', '99')
             (root / 'orca-macos-arm64.dmg').write_bytes(b'')
             with self.assertRaisesRegex(ValueError, 'empty'):
                 module.verify(root, 'a' * 40, 'v1.4.281-hub.1', '99')

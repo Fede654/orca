@@ -57,6 +57,9 @@ def main():
             command('gh', 'run', 'download', args.run, '--repo', REPO,
                     '--name', 'staged-' + platform, '--dir', str(root))
         expected = assets.verify(root, args.commit, args.tag, args.run)
+        if any(json.loads((root / (platform + '.json')).read_text())['attempt'] > run['run_attempt']
+               for platform in assets.ASSETS):
+            raise ValueError('artifact receipt belongs to a future run attempt')
         print(json.dumps(dict(repoId=repo['id'], commit=args.commit, tag=args.tag,
                               run=args.run, attempt=run['run_attempt'], assets=expected)))
         if not args.publish:
