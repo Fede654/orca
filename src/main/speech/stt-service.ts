@@ -27,6 +27,15 @@ export type SttEvent =
   | { type: 'final'; text?: string }
   /** Speech was heard whose text hasn't arrived yet; only from pause-cut on-device models. */
   | { type: 'speech-pending'; pending: boolean }
+  | {
+      type: 'segment-progress'
+      silenceMs: number
+      pauseMs: number
+      segmentMs: number
+      maxMs: number
+      limitWarningMs: number
+      cutReason?: 'pause' | 'limit'
+    }
   | { type: 'stopped' }
   | { type: 'error'; error?: string }
 

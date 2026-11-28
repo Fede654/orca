@@ -1,3 +1,4 @@
+import { pinnedSpeechModelId } from './speech-model-pin'
 import type { GlobalSettings } from '../../shared/settings/global-settings-types'
 import { voiceModelUnloadDelayMs } from '../../shared/speech/models/voice-model-unload'
 import {
@@ -20,14 +21,17 @@ export function startSpeechModelWarmup(store: SpeechWarmupStore): () => void {
   // A settings change retries a model that failed to load; a window focus does not.
   const sync = (retryFailed: boolean): void => {
     const voice = store.getSettings().voice
-    if (!voice?.enabled || !voice.sttModel) {
+    const pin = pinnedSpeechModelId()
+    const modelId =
+      pin.kind === 'invalid' ? undefined : pin.kind === 'pinned' ? pin.id : voice?.sttModel
+    if (!voice?.enabled || !modelId) {
       void findSpeechSttService()?.unloadIdleModel()
       return
     }
     const runPrewarm = (): void => {
       try {
         const latestVoice = store.getSettings().voice
-        if (!latestVoice?.enabled || !latestVoice.sttModel) {
+        if (!latestVoice?.enabled || !(pin.kind === 'none' ? latestVoice.sttModel : modelId)) {
           void findSpeechSttService()?.unloadIdleModel()
           return
         }
@@ -35,8 +39,9 @@ export function startSpeechModelWarmup(store: SpeechWarmupStore): () => void {
         stt.setIdleUnloadDelay(voiceModelUnloadDelayMs(latestVoice))
         const prewarm = (): void => {
           const current = store.getSettings().voice
-          if (current?.enabled && current.sttModel) {
-            void stt.prewarm(current.sttModel, current.dictationLanguage, retryFailed)
+          const currentModelId = pin.kind === 'none' ? current?.sttModel : modelId
+          if (current?.enabled && currentModelId) {
+            void stt.prewarm(currentModelId, current.dictationLanguage, retryFailed)
           }
         }
         // A loaded recognizer keeps the GPU choice it started with; reload it once no dictation uses it.
